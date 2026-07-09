@@ -25,13 +25,12 @@ def welcome_msg(first_name: str, balance: float, total_spent: float) -> str:
     bal = escape_md(f"${balance:.2f}")
     mem = escape_md(membership)
     return (
-        f"\U0001f6cd Welcome back, *{name}*\\!\n\n"
-        f"Quality products at cheapest rates\n\n"
-        f"{sep()}\n"
-        f"\U0001f9fe  *Balance*      {bal}\n"
-        f"\U0001faaa  *Membership*  {mem}\n"
-        f"{sep()}\n\n"
-        "Browse the Shop, top up your Wallet, or invite friends to earn rewards\\."
+        f"✨ *Welcome to GeminiStore, {name}\\!* ✨\n\n"
+        f"🚀 *Your premium hub for Google AI Pro activations\\.*\n"
+        f"Get instant activation links at the absolute cheapest rates on the market\\!\n\n"
+        f"💳 *Wallet Balance:* {bal}\n"
+        f"🪪 *Membership Tier:* {mem}\n\n"
+        f"Use the menu buttons below to browse products, manage your wallet, or contact support\\."
     )
 
 

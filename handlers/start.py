@@ -7,6 +7,8 @@ from utils.keyboards import main_menu_kb, persistent_menu_kb
 from utils.messages import welcome_msg, escape_md
 
 
+GEMINI_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/1024px-Google_Gemini_logo.svg.png"
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     referrer_id = None
@@ -31,14 +33,28 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if update.message:
+        # Activate persistent bottom menu keyboard
         await update.message.reply_text(
-            text, parse_mode="MarkdownV2", reply_markup=persistent_menu_kb()
+            "⚡ *Welcome to GeminiStore\\!*",
+            parse_mode="MarkdownV2",
+            reply_markup=persistent_menu_kb()
+        )
+        # Send the main photo with inline menu
+        await update.message.reply_photo(
+            photo=GEMINI_LOGO_URL,
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=main_menu_kb()
         )
     else:
         # If started via callback, delete callback and send new message
         await update.callback_query.message.delete()
-        await update.callback_query.message.reply_text(
-            text, parse_mode="MarkdownV2", reply_markup=persistent_menu_kb()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=GEMINI_LOGO_URL,
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=main_menu_kb()
         )
 
 
@@ -55,16 +71,14 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_spent=user["total_spent"],
     )
     message = update.callback_query.message
-    if message.photo:
-        await message.delete()
-        await message.reply_text(
-            text, parse_mode="MarkdownV2", reply_markup=persistent_menu_kb()
-        )
-    else:
-        await message.delete()
-        await message.reply_text(
-            text, parse_mode="MarkdownV2", reply_markup=persistent_menu_kb()
-        )
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=text,
+        parse_mode="MarkdownV2",
+        reply_markup=main_menu_kb()
+    )
 
 
 async def text_browse_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):

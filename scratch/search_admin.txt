@@ -1,0 +1,35 @@
+43: cur = await db.execute("SELECT COUNT(*) FROM orders WHERE status='pending'")
+45: cur = await db.execute("SELECT COUNT(*) FROM topup_requests WHERE status='pending'")
+47: cur = await db.execute("SELECT SUM(total_price) FROM orders WHERE status IN ('paid','delivered')")
+75: status = "✅" if p["is_active"] else "❌"
+77: label = f"{status} {p['emoji']} {p['name'][:25]} | ${p['price']:.2f} | 📦{stock}"
+123: "UPDATE products SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?",
+250: status_emoji = {"pending": "⏳", "paid": "✅", "delivered": "📦", "cancelled": "❌"}
+253: se = status_emoji.get(o["status"], "❓")
+291: f"📊 Status: {o['status']}\n"
+304: "UPDATE orders SET status='paid', updated_at=datetime('now') WHERE id=?",
+316: "UPDATE products SET sold=sold+? WHERE id=?",
+336: async def cb_admin_order_delivered(update: Update, context: ContextTypes.DEFAULT_TYPE):
+339: context.user_data["delivering_order"] = order_id
+341: "📦 *Mark as Delivered*\n\nEnter delivery info to send to customer "
+348: async def recv_deliver_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+349: order_id = context.user_data.get("delivering_order")
+355: "UPDATE orders SET status='delivered', delivery_info=?, updated_at=datetime('now') WHERE id=?",
+363: msg = f"📦 *Order \\#{order_id} Delivered\\!*\n\nYour product has been delivered\\! 🎉"
+374: f"✅ Order \\#{order_id} marked as delivered\\.", parse_mode="MarkdownV2",
+387: if o and o["payment_method"] == "Wallet" and o["status"] == "paid":
+390: "UPDATE users SET balance=balance+? WHERE telegram_id=?",
+394: "UPDATE orders SET status='cancelled', updated_at=datetime('now') WHERE id=?",
+404: + (f" \\${o['total_price']:.2f} refunded to your wallet\\." if o["payment_method"] == "Wallet" and o["status"] == "paid" else ""),
+419: WHERE t.status='pending' ORDER BY t.created_at DESC LIMIT 20"""
+471: if not req or req["status"] != "pending":
+476: "UPDATE topup_requests SET status='approved', updated_at=datetime('now') WHERE id=?",
+480: "UPDATE users SET balance=balance+? WHERE telegram_id=?",
+510: "UPDATE topup_requests SET status='rejected', updated_at=datetime('now') WHERE id=?",
+616: "UPDATE users SET is_banned = CASE WHEN is_banned=1 THEN 0 ELSE 1 END WHERE telegram_id=?",
+620: await update.callback_query.answer("User ban status toggled!", show_alert=True)
+633: status = "✅" if c["is_active"] else "❌"
+635: label = f"{status} {c['code']} — {disc} | Used: {c['uses_count']}"
+651: "UPDATE coupons SET is_active = CASE WHEN is_active=1 THEN 0 ELSE 1 END WHERE id=?",
+806: entry_points=[CallbackQueryHandler(cb_admin_order_delivered, pattern=r"^admin_ord_delivered_\d+$")],
+807: states={ADMIN_DELIVER_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_deliver_info)]},

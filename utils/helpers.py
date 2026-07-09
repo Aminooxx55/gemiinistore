@@ -9,13 +9,15 @@ from config import get_membership, ADMIN_ID
 
 def get_product_unit_price(product_name: str, base_price: float, qty: int) -> float:
     """Calculate the unit price based on product name and quantity (bulk pricing)."""
-    if "Gemini" in product_name:
+    if "Google AI Pro" in product_name or "Gemini" in product_name:
         if qty >= 50:
-            return 0.90
-        elif qty >= 30:
-            return 1.00
+            return 1.10
+        elif qty >= 20:
+            return 1.25
         elif qty >= 10:
-            return 1.30
+            return 1.35
+        else:
+            return 1.49
     return base_price
 
 

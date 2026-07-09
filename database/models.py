@@ -169,7 +169,7 @@ SEED_CATEGORIES = [
 
 SEED_PRODUCTS = [
     # name, desc, price, stock, sold, emoji, cat_id (1-based index), is_free, is_active, has_discount, old_price
-    ("Gemini Advanced 18 Months", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Gemini Advanced on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.30* each\n• 30+ items: *$1.00* each\n• 50+ items: *$0.90* each", 1.50, 0, 0, "🤖", 1, 0, 1, 0, None),
+    ("Google AI Pro 18 Months (Activation Link)", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Google AI Pro on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.35* each\n• 20+ items: *$1.25* each\n• 50+ items: *$1.10* each", 1.49, 0, 0, "🤖", 1, 0, 1, 0, None),
 ]
 
 

@@ -11,6 +11,7 @@ BINANCE_API_SECRET = "iU4FFrdr7mvIe9WSsF81XzobQywfa5oUTA7YZFMehYzp3d5esvieftj62H
 async def main():
     params = {
         'timestamp': int(time.time() * 1000),
+        'recvWindow': 60000,
         'limit': 10
     }
     

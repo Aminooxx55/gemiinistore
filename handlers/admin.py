@@ -740,23 +740,67 @@ async def cb_admin_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ADMIN_BROADCAST
 
 
+async def run_broadcast_in_background(bot, user_ids: list, text: str, admin_id: int):
+    import asyncio
+    from telegram.error import RetryAfter
+    from utils.messages import escape_md
+    
+    sent, failed = 0, 0
+    for uid in user_ids:
+        try:
+            try:
+                # Try MarkdownV2 first
+                await bot.send_message(chat_id=uid, text=text, parse_mode="MarkdownV2")
+            except Exception:
+                # Fallback to plain text if markdown formatting is invalid
+                await bot.send_message(chat_id=uid, text=text)
+            sent += 1
+            await asyncio.sleep(0.05)  # Throttling to respect Telegram's 30/sec rate limits
+        except RetryAfter as e:
+            # Respect Telegram's explicit rate limit backoff request
+            await asyncio.sleep(e.retry_after)
+            try:
+                await bot.send_message(chat_id=uid, text=text)
+                sent += 1
+            except Exception:
+                failed += 1
+        except Exception:
+            failed += 1
+
+    try:
+        await bot.send_message(
+            chat_id=admin_id,
+            text=f"📢 *Broadcast Completed\\!*\n\n"
+                 f"✅ *Delivered:* `{sent}`\n"
+                 f"❌ *Failed:* `{failed}`",
+            parse_mode="MarkdownV2"
+        )
+    except Exception:
+        pass
+
+
 async def recv_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    import asyncio
     text = update.message.text
+    admin_id = update.effective_user.id
+    
     async with get_db() as db:
         cur = await db.execute("SELECT telegram_id FROM users WHERE is_banned=0")
         users = [r[0] for r in await cur.fetchall()]
 
-    sent, failed = 0, 0
-    for uid in users:
-        try:
-            await context.bot.send_message(chat_id=uid, text=text)
-            sent += 1
-        except Exception:
-            failed += 1
+    if not users:
+        await update.message.reply_text("⚠️ No active users found to broadcast to.", reply_markup=admin_kb())
+        return ConversationHandler.END
+
+    # Start non-blocking task in background
+    asyncio.create_task(run_broadcast_in_background(context.bot, users, text, admin_id))
 
     await update.message.reply_text(
-        f"📢 Broadcast complete\\!\n✅ Sent: {sent}\n❌ Failed: {failed}",
-        parse_mode="MarkdownV2", reply_markup=admin_kb()
+        f"📢 *Broadcast Started\\!*\n\n"
+        f"Sending messages in the background to `{len(users)}` users\\.\n"
+        f"You will receive a notification here when it is complete\\.",
+        parse_mode="MarkdownV2",
+        reply_markup=admin_kb()
     )
     return ConversationHandler.END
 

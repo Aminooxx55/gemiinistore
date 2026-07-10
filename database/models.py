@@ -163,6 +163,12 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     created_at TEXT DEFAULT (datetime('now'))
 )"""
 
+CREATE_INDEX_ORDERS_USER = "CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)"
+CREATE_INDEX_ORDERS_PRODUCT = "CREATE INDEX IF NOT EXISTS idx_orders_product_id ON orders(product_id)"
+CREATE_INDEX_TRANSACTIONS_USER = "CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)"
+CREATE_INDEX_PRODUCT_STOCK_PROD = "CREATE INDEX IF NOT EXISTS idx_product_stock_prod ON product_stock(product_id, is_sold)"
+CREATE_INDEX_SUPPORT_USER = "CREATE INDEX IF NOT EXISTS idx_support_user_id ON support_tickets(user_id)"
+
 SEED_CATEGORIES = [
     ("🤖 Gemini Advanced", "🤖"),
 ]
@@ -180,7 +186,10 @@ async def init_db():
                     CREATE_ORDERS, CREATE_TRANSACTIONS, CREATE_COUPONS,
                     CREATE_COUPON_USES, CREATE_REFERRALS, CREATE_TOPUP_REQUESTS,
                     CREATE_USER_ACTIVITY, CREATE_REVIEWS, CREATE_PRODUCT_STOCK,
-                    CREATE_USER_SPINS, CREATE_SUPPORT_TICKETS]:
+                    CREATE_USER_SPINS, CREATE_SUPPORT_TICKETS,
+                    CREATE_INDEX_ORDERS_USER, CREATE_INDEX_ORDERS_PRODUCT,
+                    CREATE_INDEX_TRANSACTIONS_USER, CREATE_INDEX_PRODUCT_STOCK_PROD,
+                    CREATE_INDEX_SUPPORT_USER]:
             await db.execute(sql)
 
         # Seed categories if empty

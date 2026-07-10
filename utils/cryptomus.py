@@ -23,7 +23,7 @@ def is_cryptomus_enabled() -> bool:
 
 def generate_signature(payload: dict, api_key: str) -> str:
     """Generate MD5 signature for Cryptomus API."""
-    payload_str = json.dumps(payload, separators=(',', ':'))
+    payload_str = json.dumps(payload)
     encoded_payload = base64.b64encode(payload_str.encode('utf-8')).decode('utf-8')
     sign = hashlib.md5((encoded_payload + api_key).encode('utf-8')).hexdigest()
     return sign

@@ -331,7 +331,7 @@ async def cb_pay_cryptomus(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await db.execute("DELETE FROM orders WHERE id=?", (order_id,))
             await db.commit()
         await update.callback_query.edit_message_text(
-            "❌ *Payment Gateway Error*\n\nUnable to generate payment link at this moment. Please try again later.",
+            "❌ *Payment Gateway Error*\n\nUnable to generate payment link at this moment\\. Please try again later\\.",
             parse_mode="MarkdownV2",
             reply_markup=back_home_kb()
         )

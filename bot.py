@@ -34,7 +34,6 @@ async def post_init(app: Application):
     logger.info("✅ Database initialized.")
     await app.bot.set_my_commands([
         ("start", "Open the shop"),
-        ("admin", "Admin panel (admin only)"),
     ])
 
     from utils.cryptomus import is_cryptomus_enabled

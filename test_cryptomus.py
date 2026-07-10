@@ -10,9 +10,9 @@ def main():
     conn = sqlite3.connect(db_path)
     try:
         c = conn.cursor()
-        c.execute("SELECT id, telegram_id, first_name, action, timestamp FROM user_activity ORDER BY id DESC LIMIT 15")
+        c.execute("SELECT * FROM user_activity ORDER BY id DESC LIMIT 15")
         for r in c.fetchall():
-            print(f"ID: {r[0]} | User: {r[1]} ({r[2]}) | Action: {r[3]} | Time: {r[4]}")
+            print(r)
     except Exception as e:
         print("Error:", e)
     finally:

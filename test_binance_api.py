@@ -24,18 +24,24 @@ async def main():
     params['signature'] = signature
     headers = {'X-MBX-APIKEY': BINANCE_API_KEY}
     
-    print("=== Testing Binance SAPI /sapi/v1/pay/transactions ===")
+    print("=== Testing Binance SAPI domains ===")
+    domains = [
+        "https://api.binance.com",
+        "https://api1.binance.com",
+        "https://api2.binance.com",
+        "https://api3.binance.com",
+        "https://api-gcp.binance.com"
+    ]
     async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.get(
-            "https://api.binance.com/sapi/v1/pay/transactions",
-            headers=headers,
-            params=params
-        )
-        print("Status Code:", r.status_code)
-        try:
-            print("Response:", r.json())
-        except Exception:
-            print("Raw Response:", r.text)
+        for domain in domains:
+            url = f"{domain}/sapi/v1/pay/transactions"
+            print(f"Testing: {url}")
+            try:
+                r = await client.get(url, headers=headers, params=params)
+                print(f"[{domain}] Status Code: {r.status_code}")
+                print(f"[{domain}] Response: {r.text[:200]}")
+            except Exception as e:
+                print(f"[{domain}] Error: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())

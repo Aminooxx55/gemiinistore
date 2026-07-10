@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""All message templates used throughout the bot."""
+"""All message templates used throughout the bot, optimized for premium readability."""
 from config import get_membership
 
 MD_CHARS = r"\_*[]()~`>#+-=|{}.!"
@@ -16,7 +16,8 @@ def escape_md(text: str) -> str:
 
 
 def sep() -> str:
-    return "\\-\\-\\-\\-\\-\\-\\-\\-\\-"
+    """Consistent visual separator line."""
+    return "━━━━━━━━━━━━━━━━━━━━━━"
 
 
 def welcome_msg(first_name: str, balance: float, total_spent: float) -> str:
@@ -25,35 +26,38 @@ def welcome_msg(first_name: str, balance: float, total_spent: float) -> str:
     bal = escape_md(f"${balance:.2f}")
     mem = escape_md(membership)
     return (
-        f"✨ *Welcome to GeminiStore, {name}\\!* ✨\n\n"
-        f"🚀 *Your premium hub for Google AI Pro activations\\.*\n"
-        f"Get instant activation links at the absolute cheapest rates on the market\\!\n\n"
-        f"💳 *Wallet Balance:* {bal}\n"
-        f"🪪 *Membership Tier:* {mem}\n\n"
-        f"Use the menu buttons below to browse products, manage your wallet, or contact support\\."
+        f"✨ *WELCOME TO GEMINISTORE, {name.upper()}\\!* ✨\n"
+        f"{sep()}\n"
+        f"🚀 *Premium Google AI Pro 18\\-Month Activations*\n"
+        f"⚡ _Instant delivery, worldwide access, no credentials needed\\._\n"
+        f"{sep()}\n\n"
+        f"👤 *Customer:* {name}\n"
+        f"💳 *Wallet Balance:* `{bal}`\n"
+        f"🏆 *Membership Tier:* {mem}\n\n"
+        f"👇 _Select an option below to begin shopping or manage your account:_ "
     )
 
 
 def product_detail_msg(p: dict) -> str:
     stock = p.get("stock", 0)
     if stock == -1:
-        stock_str = "Unlimited"
+        stock_str = "♾️ Unlimited Stock"
     elif stock == 0:
-        stock_str = "OUT OF STOCK"
+        stock_str = "🔴 OUT OF STOCK"
     elif stock <= 3:
-        stock_str = f"Only {stock} left\\!"
+        stock_str = f"⚠️ Low Stock: Only {stock} left\\!"
     else:
-        stock_str = f"{stock} in stock"
+        stock_str = f"🟢 In Stock: {stock} units"
 
     if p.get("is_free"):
-        price_line = "Price: *FREE* \U0001f525"
+        price_line = "Price: *FREE* 🔥"
     else:
         price_val = p.get("price", 0.0)
         price_str = escape_md(f"${price_val:.2f}")
         if p.get("has_discount") and p.get("old_price"):
             old_val = p.get("old_price", 0.0)
             old_str = escape_md(f"${old_val:.2f}")
-            price_line = f"Price: *{price_str}* ~{old_str}~ \u26a1"
+            price_line = f"Price: *{price_str}* ~{old_str}~ \\(Save {escape_md(f'${old_val - price_val:.2f}')}\\) ⚡"
         else:
             price_line = f"Price: *{price_str}*"
 
@@ -61,13 +65,14 @@ def product_detail_msg(p: dict) -> str:
     name = escape_md(p.get("name", ""))
 
     return (
-        f"{p.get('emoji','') } *{name}*\n\n"
-        f"{desc}\n\n"
+        f"📦 *{name.upper()}*\n"
         f"{sep()}\n"
-        f"\U0001f4b0 {price_line}\n"
-        f"\U0001f4e6 Stock: {escape_md(stock_str)}\n"
-        f"\U0001f6d2 {p.get('sold', 0)} sold\n"
-        f"{sep()}"
+        f"{desc}\n"
+        f"{sep()}\n\n"
+        f"💰 *{price_line}*\n"
+        f"📦 *Availability:* {stock_str}\n"
+        f"🔥 *Popularity:* {p.get('sold', 0)} items sold\n\n"
+        f"👇 _Select your quantity or action below:_ "
     )
 
 
@@ -76,25 +81,35 @@ def confirm_purchase_msg(name: str, qty: int, unit_price: float,
                           coupon_discount: float = 0.0) -> str:
     final = max(0.0, total - coupon_discount)
     shortage = max(0.0, final - balance)
+    
     lines = [
-        "\U0001f6d2 *Confirm Purchase*",
+        "🛒 *ORDER CONFIRMATION*",
         sep(),
-        f"\U0001f4e6 *Product:* {escape_md(name)}",
-        f"\U0001f522 *Quantity:* {qty}",
-        f"\U0001f4b2 *Unit Price:* {escape_md(f'${unit_price:.2f}')}",
+        f"📦 *Product:* {escape_md(name)}",
+        f"🔢 *Quantity:* `{qty}`",
+        f"💵 *Unit Price:* `{escape_md(f'${unit_price:.2f}')}`",
     ]
     if coupon_discount > 0:
-        lines.append(f"\U0001f3ab *Coupon Discount:* {escape_md(f'-${coupon_discount:.2f}')}")
+        lines.append(f"🎟️ *Coupon Discount:* `-{escape_md(f'${coupon_discount:.2f}')}`")
+    
+    lines.extend([
+        sep(),
+        f"💰 *Total Amount:* `{escape_md(f'${final:.2f}')}`",
+        f"💳 *Your Wallet Balance:* `{escape_md(f'${balance:.2f}')}`",
+    ])
+    
     if shortage > 0:
-        lines.append(f"\u26a0 *Wallet short {escape_md(f'${shortage:.2f}')}*")
-    lines += [
-        f"\U0001f4b0 *Total:* {escape_md(f'${final:.2f}')}",
-        sep(),
-        f"\U0001f45b *Your Wallet Balance:* {escape_md(f'${balance:.2f}')}",
-        sep(),
-        "",
-        "Choose a payment method:",
-    ]
+        lines.extend([
+            sep(),
+            f"⚠️ *Insufficient Balance\\!*",
+            f"You need `{escape_md(f'${shortage:.2f}')}` more in your wallet to complete this purchase\\.",
+        ])
+    else:
+        lines.extend([
+            sep(),
+            "✅ You have enough balance to pay instantly from your wallet\\.",
+        ])
+        
     return "\n".join(lines)
 
 
@@ -105,30 +120,39 @@ def payment_address_msg(method: str, amount: float, address: str) -> str:
         "binance": "Binance Pay",
     }.get(method, method)
     return (
-        f"\U0001f4b3 *Send Exactly {escape_md(f'${amount:.2f}')} via {escape_md(network)}*\n\n"
-        f"\U0001f4cb *Address / ID:*\n"
+        f"💳 *INVOICE DETAILS*\n"
+        f"{sep()}\n"
+        f"💵 *Amount to Send:* `{escape_md(f'${amount:.2f}')}`\n"
+        f"🔷 *Payment Method:* {escape_md(network)}\n"
+        f"{sep()}\n\n"
+        f"📋 *Recipient Address / Pay ID:*\n"
         f"`{escape_md(address)}`\n\n"
-        f"\u26a0 Send *exactly* the amount shown\\.\n"
-        f"After sending, click \u2705 I've Sent Payment\\.\n\n"
-        f"📸 *Send a screenshot of the payment to @lovable47 for instant check\\!*"
+        f"⚠️ *Crucial Rules:*\n"
+        f"1\\. Send *exactly* the amount requested above\\.\n"
+        f"2\\. Once sent, click the **✅ I've Sent Payment** button below\\.\n\n"
+        f"📸 _Please forward your transaction receipt / screenshot to @lovable47 for manual verification\\._"
     )
 
 
 def order_status_msg(order: dict, product_name: str) -> str:
     status_emoji = {
-        "pending": "\u23f3",
-        "paid": "\u2705",
-        "delivered": "\U0001f4e6",
-        "cancelled": "\u274c",
-    }.get(order["status"], "?")
+        "pending": "⏳",
+        "paid": "✅",
+        "delivered": "📦",
+        "cancelled": "❌",
+    }.get(order["status"], "❓")
+    
     total_val = order.get("total_price", 0.0)
     total_str = escape_md(f"${total_val:.2f}")
+    
     return (
-        f"\U0001f4cb *Order \\#{order['id']}*\n\n"
-        f"\U0001f4e6 *Product:* {escape_md(product_name)}\n"
-        f"\U0001f522 *Quantity:* {order['quantity']}\n"
-        f"\U0001f4b0 *Total:* {total_str}\n"
-        f"\U0001f4b3 *Payment:* {escape_md(order['payment_method'])}\n"
-        f"\U0001f4ca *Status:* {status_emoji} {order['status'].capitalize()}\n"
-        f"\U0001f4c5 *Date:* {escape_md(order['created_at'][:16])}\n"
+        f"📋 *ORDER #{order['id']} DETAIL*\n"
+        f"{sep()}\n"
+        f"📦 *Product:* {escape_md(product_name)}\n"
+        f"🔢 *Quantity:* `{order['quantity']}`\n"
+        f"💰 *Total Paid:* `{total_str}`\n"
+        f"💳 *Method:* {escape_md(order['payment_method'])}\n"
+        f"⏱️ *Status:* {status_emoji} {order['status'].capitalize()}\n"
+        f"📅 *Order Date:* {escape_md(order['created_at'][:16])}\n"
+        f"{sep()}"
     )

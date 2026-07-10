@@ -24,19 +24,25 @@ async def main():
     params['signature'] = signature
     headers = {'X-MBX-APIKEY': BINANCE_API_KEY}
     
-    print("=== Testing Binance SAPI with Proxies ===")
+    print("=== Testing Binance SAPI with DE/FR Proxies ===")
     
-    # Fetch HTTP proxies from TheSpeedX GitHub list
+    # Fetch HTTP proxies from databay-labs country-specific lists
     proxies = []
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get("https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt")
-            if r.status_code == 200:
-                raw_proxies = r.text.strip().split("\n")
-                proxies = [p.strip() for p in raw_proxies if p.strip()]
-                print(f"Fetched {len(proxies)} proxies from GitHub SOCKS-List.")
-    except Exception as e:
-        print("Failed to fetch proxies:", e)
+    countries = ["de", "fr", "nl"]
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for country in countries:
+            url = f"https://raw.githubusercontent.com/databay-labs/free-proxy-list/master/by-country/{country}/http.txt"
+            try:
+                r = await client.get(url)
+                if r.status_code == 200:
+                    raw_proxies = r.text.strip().split("\n")
+                    cleaned = [p.strip() for p in raw_proxies if p.strip()]
+                    proxies.extend(cleaned)
+                    print(f"Fetched {len(cleaned)} proxies for {country.upper()}.")
+            except Exception as e:
+                print(f"Failed to fetch {country.upper()} proxies:", e)
+
+    print(f"Total proxies collected: {len(proxies)}")
 
     # Try each proxy
     for proxy in proxies[:30]:  # limit to first 30 for speed
@@ -44,7 +50,7 @@ async def main():
         print(f"Testing Proxy: {proxy_url}")
         try:
             # Create httpx client with proxy
-            async with httpx.AsyncClient(proxies={"http://": proxy_url, "https://": proxy_url}, timeout=5.0) as client:
+            async with httpx.AsyncClient(proxies={"http://": proxy_url, "https://": proxy_url}, timeout=6.0) as client:
                 r = await client.get(
                     "https://api.binance.com/sapi/v1/pay/transactions",
                     headers=headers,

@@ -3,6 +3,7 @@ import hmac
 import hashlib
 import httpx
 import asyncio
+import json
 from urllib.parse import urlencode
 
 BINANCE_API_KEY = "SdYTCQlUP1fZmpwIbdjphFMCud3WeNZk0tEpTSQAT8wjpf1ITPcDgqioeIL6dgKA"

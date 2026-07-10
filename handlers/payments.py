@@ -280,10 +280,10 @@ async def cb_payment_sent(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_caption(
             caption=(
                 f"⏳ *Auto-Verification*\n\n"
-                f"Please type and send your *Binance Pay Transaction ID / Reference* now\\.\n\n"
-                f"💡 This is a long number or starts with `P_` \\(e.g\\. `P_A231AD7KG4W71112`\\)\\."
+                f"Please type and send your *Binance Pay Transaction ID / Reference* now.\n\n"
+                f"💡 This is a long number or starts with `P_` (e.g. `P_A231AD7KG4W71112`)."
             ),
-            parse_mode="MarkdownV2",
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]
             ]),

@@ -144,12 +144,12 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     price_str = escape_md(f"${p['price']:.2f}")
     bulk_info = ""
-    if "Gemini" in p["name"]:
+    if "Google AI Pro" in p["name"] or "Gemini" in p["name"]:
         bulk_info = (
             "\n\n📈 *Bulk Discounts:*\n"
-            "• 10\\+ items: *\\$1\\.30* each\n"
-            "• 30\\+ items: *\\$1\\.00* each\n"
-            "• 50\\+ items: *\\$0\\.90* each\n"
+            "• 10\\+ items: *\\$1\\.35* each\n"
+            "• 20\\+ items: *\\$1\\.25* each\n"
+            "• 50\\+ items: *\\$1\\.10* each\n"
         )
 
     await update.callback_query.edit_message_text(

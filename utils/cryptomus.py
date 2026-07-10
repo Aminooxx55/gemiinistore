@@ -9,6 +9,9 @@ import os
 
 logger = logging.getLogger(__name__)
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # Load keys from environment
 CRYPTOMUS_MERCHANT_UUID = os.getenv("CRYPTOMUS_MERCHANT_UUID", "")
 CRYPTOMUS_API_KEY = os.getenv("CRYPTOMUS_API_KEY", "")

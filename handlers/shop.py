@@ -454,6 +454,50 @@ async def recv_coupon_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def cb_cancel_shop_conv(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram.ext import ConversationHandler
+    await update.callback_query.answer()
+    
+    # Clear user data states
+    context.user_data.pop("awaiting_qty_for", None)
+    context.user_data.pop("coupon_for", None)
+    context.user_data.pop("pending", None)
+
+    data = update.callback_query.data
+    
+    # Route to appropriate handlers
+    if data == "main_menu":
+        from handlers.start import cb_main_menu
+        await cb_main_menu(update, context)
+    elif data == "shop_home":
+        await cb_shop_home(update, context)
+    elif data.startswith("cat_"):
+        await cb_category(update, context)
+    elif data.startswith("prod_"):
+        await cb_product_detail(update, context)
+    elif data == "support":
+        from handlers.start import cb_support
+        await cb_support(update, context)
+    else:
+        from handlers.start import cb_main_menu
+        await cb_main_menu(update, context)
+
+    return ConversationHandler.END
+
+
+async def cb_cancel_shop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram.ext import ConversationHandler
+    # Clear user data states
+    context.user_data.pop("awaiting_qty_for", None)
+    context.user_data.pop("coupon_for", None)
+    context.user_data.pop("pending", None)
+
+    # Route start command
+    from handlers.start import cmd_start
+    await cmd_start(update, context)
+    return ConversationHandler.END
+
+
 def register_shop_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_shop_home,     pattern="^shop_home$"))
     app.add_handler(CallbackQueryHandler(cb_category,      pattern=r"^cat_\d+$"))
@@ -462,11 +506,14 @@ def register_shop_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_quantity,      pattern=r"^qty_\d+_\d+$"))
 
     # Custom quantity conversation
-    from telegram.ext import ConversationHandler
+    from telegram.ext import ConversationHandler, CommandHandler
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_custom_qty_prompt, pattern=r"^qty_custom_\d+$")],
         states={AWAIT_CUSTOM_QTY: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_custom_qty)]},
-        fallbacks=[],
+        fallbacks=[
+            CommandHandler("start", cb_cancel_shop_command),
+            CallbackQueryHandler(cb_cancel_shop_conv, pattern="^.*$")
+        ],
         per_chat=True, per_user=True,
     ))
 
@@ -474,6 +521,9 @@ def register_shop_handlers(app):
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_coupon_prompt, pattern=r"^coupon_\d+_\d+$")],
         states={AWAIT_COUPON_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_coupon_code)]},
-        fallbacks=[],
+        fallbacks=[
+            CommandHandler("start", cb_cancel_shop_command),
+            CallbackQueryHandler(cb_cancel_shop_conv, pattern="^.*$")
+        ],
         per_chat=True, per_user=True,
     ))

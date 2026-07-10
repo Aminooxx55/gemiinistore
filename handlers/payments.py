@@ -400,11 +400,49 @@ async def recv_binance_ref(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cb_cancel_binance_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from telegram.ext import ConversationHandler
     await update.callback_query.answer()
-    context.user_data.pop("verify_order_id", None)
     
-    # Return to main menu
-    from handlers.start import cb_main_menu
-    await cb_main_menu(update, context)
+    # Clear user data states
+    context.user_data.pop("verify_order_id", None)
+    context.user_data.pop("awaiting_qty_for", None)
+    context.user_data.pop("coupon_for", None)
+    context.user_data.pop("pending", None)
+
+    data = update.callback_query.data
+    
+    # Route to appropriate handlers
+    if data == "main_menu" or data == "cancel_binance_verify":
+        from handlers.start import cb_main_menu
+        await cb_main_menu(update, context)
+    elif data == "shop_home":
+        from handlers.shop import cb_shop_home
+        await cb_shop_home(update, context)
+    elif data.startswith("cat_"):
+        from handlers.shop import cb_category
+        await cb_category(update, context)
+    elif data.startswith("prod_"):
+        from handlers.shop import cb_product_detail
+        await cb_product_detail(update, context)
+    elif data == "support":
+        from handlers.start import cb_support
+        await cb_support(update, context)
+    else:
+        from handlers.start import cb_main_menu
+        await cb_main_menu(update, context)
+
+    return ConversationHandler.END
+
+
+async def cb_cancel_binance_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram.ext import ConversationHandler
+    # Clear user data states
+    context.user_data.pop("verify_order_id", None)
+    context.user_data.pop("awaiting_qty_for", None)
+    context.user_data.pop("coupon_for", None)
+    context.user_data.pop("pending", None)
+
+    # Route start command
+    from handlers.start import cmd_start
+    await cmd_start(update, context)
     return ConversationHandler.END
 
 
@@ -494,14 +532,15 @@ def register_payment_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_pay_trc20,     pattern=r"^pay_trc20_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_bep20,     pattern=r"^pay_bep20_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_binance,   pattern=r"^pay_binance_\d+_\d+$"))
-    from telegram.ext import ConversationHandler, MessageHandler, filters
+    from telegram.ext import ConversationHandler, MessageHandler, filters, CommandHandler
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_payment_sent, pattern=r"^payment_sent_\d+$")],
         states={
             WAIT_BINANCE_REF: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_binance_ref)]
         },
         fallbacks=[
-            CallbackQueryHandler(cb_cancel_binance_verify, pattern="^cancel_binance_verify$")
+            CommandHandler("start", cb_cancel_binance_command),
+            CallbackQueryHandler(cb_cancel_binance_verify, pattern="^.*$")
         ],
         per_chat=True, per_user=True
     ))

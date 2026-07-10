@@ -22,6 +22,7 @@ async def test_invoice(sort: bool, minify: bool):
         "amount": "1.49",
         "currency": "USD",
         "order_id": "test_order_12345",
+        "url_callback": "https://example.com/callback",
         "lifetime": 3600
     }
 

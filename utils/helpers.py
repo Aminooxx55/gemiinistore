@@ -37,7 +37,7 @@ def get_product_unit_price(product_name: str, base_price: float, qty: int) -> fl
         elif qty >= 10:
             return 1.35
         else:
-            return 1.49
+            return base_price
     return base_price
 
 

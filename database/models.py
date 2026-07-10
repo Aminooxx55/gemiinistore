@@ -176,7 +176,7 @@ SEED_CATEGORIES = [
 
 SEED_PRODUCTS = [
     # name, desc, price, stock, sold, emoji, cat_id (1-based index), is_free, is_active, has_discount, old_price, image_url
-    ("Google AI Pro 18 Months (Activation Link)", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Google AI Pro on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.35* each\n• 20+ items: *$1.25* each\n• 50+ items: *$1.10* each", 1.49, 0, 0, "🤖", 1, 0, 1, 0, None, "https://files.catbox.moe/fnerfo.png"),
+    ("Google AI Pro 18 Months (Activation Link)", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Google AI Pro on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.35* each\n• 20+ items: *$1.25* each\n• 50+ items: *$1.10* each", 1.49, 0, 0, "🤖", 1, 0, 1, 0, None, "http://134.122.112.90:5000/static/product_banner.png"),
 ]
 
 

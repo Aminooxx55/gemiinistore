@@ -52,5 +52,5 @@ def get_membership(total_spent: float) -> str:
     return "🥉 Bronze"
 
 
-WELCOME_BANNER_URL: str = "https://files.catbox.moe/qc439a.png"
-DEFAULT_PRODUCT_BANNER_URL: str = "https://files.catbox.moe/fnerfo.png"
+WELCOME_BANNER_URL: str = "http://134.122.112.90:5000/static/welcome_banner.png"
+DEFAULT_PRODUCT_BANNER_URL: str = "http://134.122.112.90:5000/static/product_banner.png"

@@ -23,6 +23,7 @@ def rating_kb(order_id: int):
 async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     user_id = update.effective_user.id
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute(
@@ -36,9 +37,14 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         orders = [dict(r) for r in await cur.fetchall()]
 
+    from config import GEMINI_LOGO_URL
+
     if not orders:
-        await update.callback_query.edit_message_text(
-            "👀 *My Orders*\n\nYou haven't placed any orders yet\\.\n\nGo to the Shop to get started\\!",
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=GEMINI_LOGO_URL,
+            caption="👀 *My Orders*\n\nYou haven't placed any orders yet\\.\n\nGo to the Shop to get started\\!",
             parse_mode="MarkdownV2",
             reply_markup=back_home_kb(),
         )
@@ -53,8 +59,11 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     rows.append([InlineKeyboardButton("🏠 Back to Home", callback_data="main_menu")])
 
-    await update.callback_query.edit_message_text(
-        "👀 *My Orders* \\(last 20\\)\n\nClick an order to see details:",
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption="👀 *My Orders* \\(last 20\\)\n\nClick an order to see details:",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(rows),
     )
@@ -64,6 +73,7 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     order_id = int(update.callback_query.data.split("_")[2])
     user_id = update.effective_user.id
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute(
@@ -96,8 +106,12 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb_rows.insert(0, [InlineKeyboardButton("⭐ Rate Purchase", callback_data=f"show_rate_{order_id}")])
         keyboard = InlineKeyboardMarkup(kb_rows)
 
-    await update.callback_query.edit_message_text(
-        text,
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=text,
         parse_mode="MarkdownV2",
         reply_markup=keyboard,
     )
@@ -106,8 +120,14 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cb_show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     order_id = int(update.callback_query.data.split("_")[2])
-    await update.callback_query.edit_message_text(
-        "⭐ *Please rate your purchase experience:*\n\nYour feedback helps us provide better service\\!",
+    message = update.callback_query.message
+
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption="⭐ *Please rate your purchase experience:*\n\nYour feedback helps us provide better service\\!",
         parse_mode="MarkdownV2",
         reply_markup=rating_kb(order_id),
     )
@@ -119,6 +139,7 @@ async def cb_rate_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rating = int(parts[1])
     order_id = int(parts[2])
     user_id = update.effective_user.id
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute("SELECT product_id FROM orders WHERE id=?", (order_id,))
@@ -140,10 +161,14 @@ async def cb_rate_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["waiting_for_review_comment"] = order_id
 
     stars = "⭐" * rating
-    await update.callback_query.edit_message_text(
-        f"❤️ *Thank you for your rating of {stars}\\!*\n\n"
-        f"✍️ Would you like to leave a feedback comment?\n"
-        f"Please type it below and send it, or click **Skip**:",
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=f"❤️ *Thank you for your rating of {stars}\\!*\n\n"
+                f"✍️ Would you like to leave a feedback comment?\n"
+                f"Please type it below and send it, or click **Skip**:",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("⏭️ Skip Comment", callback_data=f"skip_comment_{order_id}")]
@@ -154,8 +179,14 @@ async def cb_rate_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cb_skip_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     context.user_data.pop("waiting_for_review_comment", None)
-    await update.callback_query.edit_message_text(
-        "✅ *Feedback saved\\!*\n\nThank you for your review\\! 🥰",
+    message = update.callback_query.message
+
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption="✅ *Feedback saved\\!*\n\nThank you for your review\\! 🥰",
         parse_mode="MarkdownV2",
         reply_markup=back_home_kb(),
     )

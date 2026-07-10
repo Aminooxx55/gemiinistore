@@ -17,6 +17,7 @@ SUPPORT_USER_MSG, ADMIN_SUPPORT_REPLY = range(2)
 async def cmd_support_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start support conversation flow."""
     user_id = update.effective_user.id
+    from config import GEMINI_LOGO_URL
     
     # If admin, show tickets list menu instead of ticket creation
     if user_id == ADMIN_ID:
@@ -31,10 +32,17 @@ async def cmd_support_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if update.message:
-        await update.message.reply_text(text, parse_mode="HTML", reply_markup=back_home_kb())
+        await update.message.reply_photo(photo=GEMINI_LOGO_URL, caption=text, parse_mode="HTML", reply_markup=back_home_kb())
     else:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text, parse_mode="HTML", reply_markup=back_home_kb())
+        await update.callback_query.message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=GEMINI_LOGO_URL,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=back_home_kb()
+        )
         
     return SUPPORT_USER_MSG
 

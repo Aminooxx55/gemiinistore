@@ -8,6 +8,7 @@ from utils.messages import product_detail_msg, escape_md
 
 async def cb_freebies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute(
@@ -15,9 +16,14 @@ async def cb_freebies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         products = [dict(r) for r in await cur.fetchall()]
 
+    from config import GEMINI_LOGO_URL
+
     if not products:
-        await update.callback_query.edit_message_text(
-            "🎁 *Freebies*\n\nNo free items available right now\\. Check back later\\!",
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=GEMINI_LOGO_URL,
+            caption="🎁 *Freebies*\n\nNo free items available right now\\. Check back later\\!",
             parse_mode="MarkdownV2",
             reply_markup=back_home_kb(),
         )
@@ -32,8 +38,11 @@ async def cb_freebies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows.append([InlineKeyboardButton("🔄 Refresh",      callback_data="freebies")])
     rows.append([InlineKeyboardButton("🏠 Back to Home", callback_data="main_menu")])
 
-    await update.callback_query.edit_message_text(
-        "🎁 *Freebies*\n\nClaim these free items — no payment needed\\!",
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption="🎁 *Freebies*\n\nClaim these free items — no payment needed\\!",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(rows),
     )

@@ -7,7 +7,7 @@ from utils.keyboards import main_menu_kb, persistent_menu_kb
 from utils.messages import welcome_msg, escape_md
 
 
-GEMINI_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/1024px-Google_Gemini_logo.svg.png"
+from config import GEMINI_LOGO_URL
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
@@ -99,10 +99,13 @@ async def text_browse_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await update.message.reply_text(
-        "🛍️ *Shop — Choose a Category*\n\n"
-        "Browse our products below\\. "
-        "Green \\= in stock, Red \\= out of stock\\.",
+    await update.message.reply_photo(
+        photo=GEMINI_LOGO_URL,
+        caption=(
+            "🛍️ *Shop — Choose a Category*\n\n"
+            "Browse our products below\\. "
+            "Green \\= in stock, Red \\= out of stock\\."
+        ),
         parse_mode="MarkdownV2",
         reply_markup=shop_categories_kb(cats),
     )

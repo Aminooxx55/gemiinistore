@@ -21,31 +21,33 @@ async def cb_wallet_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bal_str = escape_md(f"${user['balance']:.2f}")
     spent_str = escape_md(f"${user['total_spent']:.2f}")
     message = update.callback_query.message
-    if message.photo:
-        await message.delete()
-        await message.reply_text(
+
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=(
             f"💵 *My Wallet*\n\n"
             f"💰 *Balance:* {bal_str}\n"
             f"📊 *Total Spent:* {spent_str}\n\n"
-            f"Top up your wallet to pay instantly\\!",
-            parse_mode="MarkdownV2",
-            reply_markup=wallet_kb(),
-        )
-    else:
-        await update.callback_query.edit_message_text(
-            f"💵 *My Wallet*\n\n"
-            f"💰 *Balance:* {bal_str}\n"
-            f"📊 *Total Spent:* {spent_str}\n\n"
-            f"Top up your wallet to pay instantly\\!",
-            parse_mode="MarkdownV2",
-            reply_markup=wallet_kb(),
-        )
+            f"Top up your wallet to pay instantly\\!"
+        ),
+        parse_mode="MarkdownV2",
+        reply_markup=wallet_kb(),
+    )
 
 
 async def cb_topup_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
-    await update.callback_query.edit_message_text(
-        "💳 *Top Up Wallet*\n\nHow much would you like to add?\n\nType the amount in USD \\(e\\.g\\. 10\\):",
+    message = update.callback_query.message
+    from config import GEMINI_LOGO_URL
+    await message.delete()
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption="💳 *Top Up Wallet*\n\nHow much would you like to add?\n\nType the amount in USD \\(e\\.g\\. 10\\):",
         parse_mode="MarkdownV2",
         reply_markup=back_home_kb(),
     )
@@ -67,8 +69,11 @@ async def recv_topup_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["topup_amount"] = amount
     amount_str = escape_md(f"${amount:.2f}")
-    await update.message.reply_text(
-        f"💳 *Top Up {amount_str}*\n\nChoose payment method:",
+    
+    from config import GEMINI_LOGO_URL
+    await update.message.reply_photo(
+        photo=GEMINI_LOGO_URL,
+        caption=f"💳 *Top Up {amount_str}*\n\nChoose payment method:",
         parse_mode="MarkdownV2",
         reply_markup=topup_method_kb(amount),
     )

@@ -27,18 +27,26 @@ async def cb_referral_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     earned_str = escape_md(f"${earned:.2f}")
     link = f"https://t\\.me/{escape_md(BOT_USERNAME)}?start=ref\\_{user_id}"
     from utils.messages import sep
+    from config import GEMINI_LOGO_URL
 
-    await update.callback_query.edit_message_text(
-        f"📣 *Refer \\& Earn*\n\n"
-        f"Invite friends and earn {reward_str} for every friend "
-        f"who makes their first purchase\\!\n\n"
-        f"{sep()}\n"
-        f"👥 *Total Referrals:* {total_refs}\n"
-        f"✅ *Rewarded:* {rewarded}\n"
-        f"💰 *Total Earned:* {earned_str}\n"
-        f"{sep()}\n\n"
-        f"🔗 *Your Referral Link:*\n`{link}`\n\n"
-        f"Share it with friends\\!",
+    message = update.callback_query.message
+    await message.delete()
+
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=(
+            f"📣 *Refer \\& Earn*\n\n"
+            f"Invite friends and earn {reward_str} for every friend "
+            f"who makes their first purchase\\!\n\n"
+            f"{sep()}\n"
+            f"👥 *Total Referrals:* {total_refs}\n"
+            f"✅ *Rewarded:* {rewarded}\n"
+            f"💰 *Total Earned:* {earned_str}\n"
+            f"{sep()}\n\n"
+            f"🔗 *Your Referral Link:*\n`{link}`\n\n"
+            f"Share it with friends\\!"
+        ),
         parse_mode="MarkdownV2",
         reply_markup=referral_kb(BOT_USERNAME, user_id),
     )

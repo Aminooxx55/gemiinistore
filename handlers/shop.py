@@ -16,21 +16,29 @@ AWAIT_COUPON_CODE = 2
 
 async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
+    message = update.callback_query.message
+    
     async with get_db() as db:
         cur = await db.execute(
             "SELECT * FROM categories WHERE is_active=1 ORDER BY id"
         )
         cats = [dict(r) for r in await cur.fetchall()]
 
-    # Filter out Freebies category from main shop (shown separately)
     cats = [c for c in cats if "Freeb" not in c["name"]]
 
     if not cats:
-        await update.callback_query.edit_message_text(
-            "🛍️ No categories available yet\\. Check back soon\\!",
-            parse_mode="MarkdownV2", reply_markup=back_home_kb()
+        await message.delete()
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="🛍️ No categories available yet\\. Check back soon\\!",
+            parse_mode="MarkdownV2",
+            reply_markup=back_home_kb()
         )
         return
+
+    await message.delete()
+
+    from config import GEMINI_LOGO_URL
 
     if len(cats) == 1:
         cat_id = cats[0]["id"]
@@ -42,17 +50,23 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             products = [dict(r) for r in await cur.fetchall()]
         if products:
-            await update.callback_query.edit_message_text(
-                f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=GEMINI_LOGO_URL,
+                caption=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
                 parse_mode="MarkdownV2",
                 reply_markup=products_list_kb(products, cat_id),
             )
             return
 
-    await update.callback_query.edit_message_text(
-        "🛍️ *Shop — Choose a Category*\n\n"
-        "Browse our products below\\. "
-        "Green \\= in stock, Red \\= out of stock\\.",
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=(
+            "🛍️ *Shop — Choose a Category*\n\n"
+            "Browse our products below\\. "
+            "Green \\= in stock, Red \\= out of stock\\."
+        ),
         parse_mode="MarkdownV2",
         reply_markup=shop_categories_kb(cats),
     )
@@ -61,6 +75,7 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     cat_id = int(update.callback_query.data.split("_")[1])
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute(
@@ -73,15 +88,23 @@ async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     cat_name = cat_row["name"] if cat_row else "Category"
 
+    await message.delete()
+
+    from config import GEMINI_LOGO_URL
+
     if not products:
-        await update.callback_query.edit_message_text(
-            f"📦 *{escape_md(cat_name)}*\n\nNo products in this category yet\\.",
-            parse_mode="MarkdownV2", reply_markup=back_home_kb()
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text=f"📦 *{escape_md(cat_name)}*\n\nNo products in this category yet\\.",
+            parse_mode="MarkdownV2",
+            reply_markup=back_home_kb()
         )
         return
 
-    await update.callback_query.edit_message_text(
-        f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
         parse_mode="MarkdownV2",
         reply_markup=products_list_kb(products, cat_id),
     )
@@ -90,14 +113,18 @@ async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     prod_id = int(update.callback_query.data.split("_")[1])
+    message = update.callback_query.message
 
     async with get_db() as db:
         cur = await db.execute("SELECT * FROM products WHERE id=?", (prod_id,))
         p = await cur.fetchone()
 
     if not p:
-        await update.callback_query.edit_message_text(
-            "❌ Product not found\\.", parse_mode="MarkdownV2",
+        await message.delete()
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="❌ Product not found\\.",
+            parse_mode="MarkdownV2",
             reply_markup=back_home_kb()
         )
         return
@@ -109,8 +136,14 @@ async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if out_of_stock:
         text += "\n\n❌ *OUT OF STOCK*"
 
-    await update.callback_query.edit_message_text(
-        text,
+    await message.delete()
+
+    from config import GEMINI_LOGO_URL
+
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=text,
         parse_mode="MarkdownV2",
         reply_markup=product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb(),
     )

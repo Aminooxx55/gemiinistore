@@ -14,6 +14,7 @@ from utils.keyboards import back_home_kb
 async def cmd_spin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /spin command or persistent menu click."""
     user_id = update.effective_user.id
+    from config import GEMINI_LOGO_URL
     
     # Check if cooldowned
     cooldown_time = await check_spin_cooldown(user_id)
@@ -28,10 +29,17 @@ async def cmd_spin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Please wait <b>{cooldown_str}</b> before spinning again! 🎡"
         )
         if update.message:
-            await update.message.reply_text(msg_text, parse_mode="HTML", reply_markup=back_home_kb())
+            await update.message.reply_photo(photo=GEMINI_LOGO_URL, caption=msg_text, parse_mode="HTML", reply_markup=back_home_kb())
         else:
             await update.callback_query.answer()
-            await update.callback_query.edit_message_text(msg_text, parse_mode="HTML", reply_markup=back_home_kb())
+            await update.callback_query.message.delete()
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=GEMINI_LOGO_URL,
+                caption=msg_text,
+                parse_mode="HTML",
+                reply_markup=back_home_kb()
+            )
         return
 
     # Render Spin Start Screen
@@ -50,10 +58,17 @@ async def cmd_spin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     
     if update.message:
-        await update.message.reply_text(text, parse_mode="HTML", reply_markup=kb)
+        await update.message.reply_photo(photo=GEMINI_LOGO_URL, caption=text, parse_mode="HTML", reply_markup=kb)
     else:
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text, parse_mode="HTML", reply_markup=kb)
+        await update.callback_query.message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=GEMINI_LOGO_URL,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=kb
+        )
 
 
 async def check_spin_cooldown(user_id: int) -> float:
@@ -100,7 +115,7 @@ async def cb_spin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     for frame in frames:
         try:
-            await update.callback_query.edit_message_text(frame, parse_mode="HTML")
+            await update.callback_query.edit_message_caption(caption=frame, parse_mode="HTML")
             await asyncio.sleep(0.4)
         except Exception:
             pass
@@ -159,7 +174,7 @@ async def cb_spin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
     try:
-        await update.callback_query.edit_message_text(result_text, parse_mode="HTML", reply_markup=back_home_kb())
+        await update.callback_query.edit_message_caption(caption=result_text, parse_mode="HTML", reply_markup=back_home_kb())
     except Exception:
         pass
 

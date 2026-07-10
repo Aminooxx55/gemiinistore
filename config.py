@@ -50,3 +50,6 @@ def get_membership(total_spent: float) -> str:
     elif total_spent >= SILVER_THRESHOLD:
         return "🥈 Silver"
     return "🥉 Bronze"
+
+
+GEMINI_LOGO_URL: str = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/1024px-Google_Gemini_logo.svg.png"

@@ -30,18 +30,26 @@ async def cb_profile_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bal_str = escape_md(f"${user['balance']:.2f}")
     spent_str = escape_md(f"${user['total_spent']:.2f}")
     from utils.messages import sep
+    from config import GEMINI_LOGO_URL
 
-    await update.callback_query.edit_message_text(
-        f"😊 *My Profile*\n\n"
-        f"👤 *Name:* {escape_md(user['first_name'])}\n"
-        f"🔗 *Username:* {username_str}\n"
-        f"🆔 *ID:* `{user['telegram_id']}`\n\n"
-        f"{sep()}\n"
-        f"💰 *Balance:* {bal_str}\n"
-        f"📊 *Total Spent:* {spent_str}\n"
-        f"🪪 *Membership:* {escape_md(membership)}\n"
-        f"⬆️ *Next Tier:* {next_tier}\n"
-        f"{sep()}",
+    message = update.callback_query.message
+    await message.delete()
+
+    await context.bot.send_photo(
+        chat_id=update.effective_user.id,
+        photo=GEMINI_LOGO_URL,
+        caption=(
+            f"😊 *My Profile*\n\n"
+            f"👤 *Name:* {escape_md(user['first_name'])}\n"
+            f"🔗 *Username:* {username_str}\n"
+            f"🆔 *ID:* `{user['telegram_id']}`\n\n"
+            f"{sep()}\n"
+            f"💰 *Balance:* {bal_str}\n"
+            f"📊 *Total Spent:* {spent_str}\n"
+            f"🪪 *Membership:* {escape_md(membership)}\n"
+            f"⬆️ *Next Tier:* {next_tier}\n"
+            f"{sep()}"
+        ),
         parse_mode="MarkdownV2",
         reply_markup=profile_kb(),
     )

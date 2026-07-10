@@ -260,11 +260,36 @@ async def cb_pay_binance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _send_crypto_invoice(update, context, "binance", BINANCE_PAY_ID)
 
 
+WAIT_BINANCE_REF = 112233
+
 async def cb_payment_sent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """User clicked 'I've Sent Payment'."""
     await update.callback_query.answer()
     order_id = int(update.callback_query.data.split("_")[2])
     user = await get_user(update.effective_user.id)
+
+    # Check if the payment method for this order is BINANCE
+    async with get_db() as db:
+        cur = await db.execute("SELECT payment_method FROM orders WHERE id=?", (order_id,))
+        order = await cur.fetchone()
+
+    from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+    from telegram.ext import ConversationHandler
+
+    if order and dict(order).get("payment_method") == "BINANCE":
+        await update.callback_query.edit_message_caption(
+            caption=(
+                f"⏳ *Auto-Verification*\n\n"
+                f"Please type and send your *Binance Pay Transaction ID / Reference* now\\.\n\n"
+                f"💡 This is a long number or starts with `P_` \\(e.g\\. `P_A231AD7KG4W71112`\\)\\."
+            ),
+            parse_mode="MarkdownV2",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]
+            ]),
+        )
+        context.user_data["verify_order_id"] = order_id
+        return WAIT_BINANCE_REF
 
     await update.callback_query.edit_message_caption(
         caption=(
@@ -282,6 +307,106 @@ async def cb_payment_sent(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
         f"Please verify and approve via /admin"
     )
+    return ConversationHandler.END
+
+
+async def recv_binance_ref(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram.ext import ConversationHandler
+    from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    order_id = context.user_data.get("verify_order_id")
+    if not order_id:
+        return ConversationHandler.END
+
+    ref_id = update.message.text.strip()
+    
+    # 1. Fetch order details to know the expected amount
+    async with get_db() as db:
+        cur = await db.execute("SELECT * FROM orders WHERE id=?", (order_id,))
+        order = await cur.fetchone()
+        
+    if not order:
+        await update.message.reply_text("❌ Order not found.", reply_markup=back_home_kb())
+        context.user_data.pop("verify_order_id", None)
+        return ConversationHandler.END
+        
+    order = dict(order)
+    expected_amount = order["total_price"]
+    
+    # Show "verifying..." message
+    verifying_msg = await update.message.reply_text(
+        "⏳ *Verifying transaction on Binance Pay...*\nThis may take up to 10 seconds.",
+        parse_mode="Markdown"
+    )
+    
+    from utils.binance_pay import verify_transaction
+    try:
+        success = await verify_transaction(ref_id, expected_amount, order_id)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error during Binance verification: {e}")
+        success = False
+        
+    if success:
+        # Update order status to completed
+        async with get_db() as db:
+            await db.execute("UPDATE orders SET status='completed' WHERE id=?", (order_id,))
+            # Deliver order
+            from utils.helpers import process_order_delivery
+            await process_order_delivery(db, context.bot, order_id)
+            await db.commit()
+            
+        # Notify user
+        await verifying_msg.delete()
+        await update.message.reply_text(
+            f"✅ *Payment Verified Successfully!*\n\n"
+            f"💰 *Amount Verified:* `${expected_amount:.2f}`\n"
+            f"🔖 *Transaction ID:* `{ref_id}`\n\n"
+            f"⚡ Your product has been delivered above! Enjoy!",
+            parse_mode="Markdown",
+            reply_markup=back_home_kb()
+        )
+        
+        # Notify admin of auto sale
+        user = await get_user(update.effective_user.id)
+        from utils.messages import escape_md
+        total_str = escape_md(f"${expected_amount:.2f}")
+        await notify_admin(
+            context,
+            f"🎉 *Automated Binance Pay Sale!* \n"
+            f"Order \\#{order_id} verified automatically\\!\n"
+            f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
+            f"Total: {total_str}\n"
+            f"TxID: `{escape_md(ref_id)}`"
+        )
+        
+        context.user_data.pop("verify_order_id", None)
+        return ConversationHandler.END
+    else:
+        # Verification failed
+        await verifying_msg.delete()
+        await update.message.reply_text(
+            "❌ *Verification Failed!*\n\n"
+            "We couldn't find a matching transaction for that ID/Reference, "
+            "or the payment amount/currency did not match your order.\n\n"
+            "✍️ *Please enter the correct Transaction ID, or click Cancel below:*",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]])
+        )
+        return WAIT_BINANCE_REF
+
+
+async def cb_cancel_binance_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from telegram.ext import ConversationHandler
+    await update.callback_query.answer()
+    context.user_data.pop("verify_order_id", None)
+    
+    # Return to main menu
+    from handlers.start import cb_main_menu
+    await cb_main_menu(update, context)
+    return ConversationHandler.END
+
 
 
 import time
@@ -369,5 +494,15 @@ def register_payment_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_pay_trc20,     pattern=r"^pay_trc20_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_bep20,     pattern=r"^pay_bep20_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_binance,   pattern=r"^pay_binance_\d+_\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_payment_sent,  pattern=r"^payment_sent_\d+$"))
+    from telegram.ext import ConversationHandler, MessageHandler, filters
+    app.add_handler(ConversationHandler(
+        entry_points=[CallbackQueryHandler(cb_payment_sent, pattern=r"^payment_sent_\d+$")],
+        states={
+            WAIT_BINANCE_REF: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_binance_ref)]
+        },
+        fallbacks=[
+            CallbackQueryHandler(cb_cancel_binance_verify, pattern="^cancel_binance_verify$")
+        ],
+        per_chat=True, per_user=True
+    ))
     app.add_handler(CallbackQueryHandler(cb_pay_cryptomus,  pattern=r"^pay_cryptomus_\d+_\d+$"))

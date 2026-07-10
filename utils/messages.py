@@ -116,6 +116,12 @@ def payment_address_msg(method: str, amount: float, address: str) -> str:
         "bep20": "USDT BEP20",
         "binance": "Binance Pay",
     }.get(method, method)
+    extra_instructions = (
+        f"Once sent, click the **✅ I've Sent Payment** button below and enter your Transaction ID/Reference for *instant automatic verification*\\."
+        if method == "binance" else
+        f"Once sent, click the **✅ I've Sent Payment** button below\\.\n\n📸 _Please forward your transaction receipt / screenshot to @lovable47 for manual verification\\._"
+    )
+
     return (
         f"💳 *INVOICE DETAILS*\n"
         f"{sep()}\n"
@@ -126,8 +132,7 @@ def payment_address_msg(method: str, amount: float, address: str) -> str:
         f"`{escape_md(address)}`\n\n"
         f"⚠️ *Crucial Rules:*\n"
         f"1\\. Send *exactly* the amount requested above\\.\n"
-        f"2\\. Once sent, click the **✅ I've Sent Payment** button below\\.\n\n"
-        f"📸 _Please forward your transaction receipt / screenshot to @lovable47 for manual verification\\._"
+        f"2\\. {extra_instructions}"
     )
 
 

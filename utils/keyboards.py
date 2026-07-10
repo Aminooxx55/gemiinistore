@@ -91,10 +91,9 @@ def confirm_purchase_kb(product_id: int, qty: int) -> InlineKeyboardMarkup:
     buttons = []
     buttons.append([InlineKeyboardButton("💳 Wallet — pay now", callback_data=f"pay_wallet_{product_id}_{qty}")])
     
+    buttons.append([InlineKeyboardButton("🔷 Binance Pay", callback_data=f"pay_binance_{product_id}_{qty}")])
     if is_cryptomus_enabled():
-        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Auto)", callback_data=f"pay_cryptomus_{product_id}_{qty}")])
-    else:
-        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Manual)", callback_data=f"pay_binance_{product_id}_{qty}")])
+        buttons.append([InlineKeyboardButton("💳 Other Cryptos (Auto)", callback_data=f"pay_cryptomus_{product_id}_{qty}")])
         
     buttons.extend([
         [InlineKeyboardButton("🎟️ Apply Coupon",          callback_data=f"coupon_{product_id}_{qty}")],

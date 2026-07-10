@@ -2,7 +2,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 from database.db import get_db
-from utils.helpers import get_user, get_product_unit_price
+from utils.helpers import get_user, get_product_unit_price, get_photo_object
 from utils.keyboards import (
     shop_categories_kb, products_list_kb, product_detail_kb,
     quantity_kb, confirm_purchase_kb, back_home_kb,
@@ -136,7 +136,7 @@ async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_photo(
         chat_id=update.effective_user.id,
-        photo=img_url,
+        photo=get_photo_object(img_url),
         caption=text,
         parse_mode="MarkdownV2",
         reply_markup=product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb(),

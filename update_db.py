@@ -13,7 +13,7 @@ def main():
     conn = sqlite3.connect(db_path)
     try:
         c = conn.cursor()
-        c.execute("UPDATE products SET image_url='http://134.122.112.90:5000/static/product_banner.png' WHERE id=2")
+        c.execute("UPDATE products SET image_url='static/product_banner.png' WHERE id=2")
         conn.commit()
         print("Success: Updated product 2 image_url in shop.db!")
     except Exception as e:

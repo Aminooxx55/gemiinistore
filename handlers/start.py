@@ -2,7 +2,7 @@
 import re
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
-from utils.helpers import get_or_create_user, get_user
+from utils.helpers import get_or_create_user, get_user, get_photo_object
 from utils.keyboards import main_menu_kb, persistent_menu_kb
 from utils.messages import welcome_msg, escape_md
 
@@ -41,7 +41,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         # Send the main photo with inline menu
         await update.message.reply_photo(
-            photo=WELCOME_BANNER_URL,
+            photo=get_photo_object(WELCOME_BANNER_URL),
             caption=text,
             parse_mode="MarkdownV2",
             reply_markup=main_menu_kb()
@@ -51,7 +51,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.message.delete()
         await context.bot.send_photo(
             chat_id=update.effective_user.id,
-            photo=WELCOME_BANNER_URL,
+            photo=get_photo_object(WELCOME_BANNER_URL),
             caption=text,
             parse_mode="MarkdownV2",
             reply_markup=main_menu_kb()
@@ -74,7 +74,7 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.delete()
     await context.bot.send_photo(
         chat_id=update.effective_user.id,
-        photo=WELCOME_BANNER_URL,
+        photo=get_photo_object(WELCOME_BANNER_URL),
         caption=text,
         parse_mode="MarkdownV2",
         reply_markup=main_menu_kb()

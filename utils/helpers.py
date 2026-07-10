@@ -7,6 +7,26 @@ from database.db import get_db
 from config import get_membership, ADMIN_ID
 
 
+def get_photo_object(path_or_url: str):
+    """Return open file object if local path exists, otherwise return the string itself."""
+    import os
+    if not path_or_url:
+        return None
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        return path_or_url
+    
+    if not os.path.isabs(path_or_url):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(base_dir, path_or_url)
+    else:
+        full_path = path_or_url
+        
+    if os.path.exists(full_path):
+        return open(full_path, "rb")
+        
+    return path_or_url
+
+
 def get_product_unit_price(product_name: str, base_price: float, qty: int) -> float:
     """Calculate the unit price based on product name and quantity (bulk pricing)."""
     if "Google AI Pro" in product_name or "Gemini" in product_name:

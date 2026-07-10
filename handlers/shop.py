@@ -158,13 +158,18 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     p = dict(p)
 
+    message = update.callback_query.message
+    await message.delete()
+
     if p["is_free"]:
         # Skip quantity for free items, go straight to confirm
         context.user_data["pending"] = {"product_id": prod_id, "qty": 1, "coupon_discount": 0.0}
         user = await get_user(update.effective_user.id)
         text = confirm_purchase_msg(p["name"], 1, 0.0, 0.0, user["balance"])
-        await update.callback_query.edit_message_text(
-            text, parse_mode="MarkdownV2",
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text=text,
+            parse_mode="MarkdownV2",
             reply_markup=confirm_purchase_kb(prod_id, 1)
         )
         return
@@ -179,11 +184,14 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• 50\\+ items: *\\$1\\.10* each\n"
         )
 
-    await update.callback_query.edit_message_text(
-        f"🛒 *Buy: {escape_md(p['name'])}*\n\n"
-        f"💲 Base Price: {price_str} each"
-        f"{bulk_info}\n"
-        f"Select quantity:",
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text=(
+            f"🛒 *Buy: {escape_md(p['name'])}*\n\n"
+            f"💲 Base Price: {price_str} each"
+            f"{bulk_info}\n"
+            f"Select quantity:"
+        ),
         parse_mode="MarkdownV2",
         reply_markup=quantity_kb(prod_id),
     )

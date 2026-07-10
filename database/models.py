@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS products (
     is_active   INTEGER DEFAULT 1,
     has_discount INTEGER DEFAULT 0,
     old_price   REAL,
+    image_url   TEXT,
     created_at  TEXT DEFAULT (datetime('now'))
 )"""
 
@@ -174,8 +175,8 @@ SEED_CATEGORIES = [
 ]
 
 SEED_PRODUCTS = [
-    # name, desc, price, stock, sold, emoji, cat_id (1-based index), is_free, is_active, has_discount, old_price
-    ("Google AI Pro 18 Months (Activation Link)", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Google AI Pro on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.35* each\n• 20+ items: *$1.25* each\n• 50+ items: *$1.10* each", 1.49, 0, 0, "🤖", 1, 0, 1, 0, None),
+    # name, desc, price, stock, sold, emoji, cat_id (1-based index), is_free, is_active, has_discount, old_price, image_url
+    ("Google AI Pro 18 Months (Activation Link)", "⚡ *Instant Activation Link*\n\nReceive a direct link to activate Google AI Pro on your own Google account for 18 Months!\nNo login required. Works worldwide.\n\n📈 *Bulk Discounts:*\n• 10+ items: *$1.35* each\n• 20+ items: *$1.25* each\n• 50+ items: *$1.10* each", 1.49, 0, 0, "🤖", 1, 0, 1, 0, None, "https://files.catbox.moe/fnerfo.png"),
 ]
 
 
@@ -191,6 +192,13 @@ async def init_db():
                     CREATE_INDEX_TRANSACTIONS_USER, CREATE_INDEX_PRODUCT_STOCK_PROD,
                     CREATE_INDEX_SUPPORT_USER]:
             await db.execute(sql)
+
+        # Migration: Add image_url column if not exists
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
+            await db.commit()
+        except Exception:
+            pass
 
         # Seed categories if empty
         cur = await db.execute("SELECT COUNT(*) FROM categories")
@@ -210,15 +218,15 @@ async def init_db():
             cur = await db.execute("SELECT id FROM categories ORDER BY id")
             cats = [r[0] for r in await cur.fetchall()]
             for p in SEED_PRODUCTS:
-                name, desc, price, stock, sold, emoji, cat_idx, is_free, is_active, has_discount, old_price = p
+                name, desc, price, stock, sold, emoji, cat_idx, is_free, is_active, has_discount, old_price, img_url = p
                 cat_id = cats[cat_idx - 1] if cat_idx <= len(cats) else None
                 await db.execute(
                     """INSERT INTO products
                        (name, description, price, stock, sold, emoji, category_id,
-                        is_free, is_active, has_discount, old_price)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                        is_free, is_active, has_discount, old_price, image_url)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (name, desc, price, stock, sold, emoji, cat_id,
-                     is_free, is_active, has_discount, old_price)
+                     is_free, is_active, has_discount, old_price, img_url)
                 )
 
         # Seed coupons

@@ -30,15 +30,12 @@ async def cb_profile_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bal_str = escape_md(f"${user['balance']:.2f}")
     spent_str = escape_md(f"${user['total_spent']:.2f}")
     from utils.messages import sep
-    from config import GEMINI_LOGO_URL
-
     message = update.callback_query.message
     await message.delete()
 
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=(
+        text=(
             f"😊 *My Profile*\n\n"
             f"👤 *Name:* {escape_md(user['first_name'])}\n"
             f"🔗 *Username:* {username_str}\n"

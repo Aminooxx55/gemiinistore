@@ -27,15 +27,12 @@ async def cb_referral_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     earned_str = escape_md(f"${earned:.2f}")
     link = f"https://t\\.me/{escape_md(BOT_USERNAME)}?start=ref\\_{user_id}"
     from utils.messages import sep
-    from config import GEMINI_LOGO_URL
-
     message = update.callback_query.message
     await message.delete()
 
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=(
+        text=(
             f"📣 *Refer \\& Earn*\n\n"
             f"Invite friends and earn {reward_str} for every friend "
             f"who makes their first purchase\\!\n\n"

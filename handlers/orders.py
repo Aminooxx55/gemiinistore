@@ -37,14 +37,11 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         orders = [dict(r) for r in await cur.fetchall()]
 
-    from config import GEMINI_LOGO_URL
-
     if not orders:
         await message.delete()
-        await context.bot.send_photo(
+        await context.bot.send_message(
             chat_id=update.effective_user.id,
-            photo=GEMINI_LOGO_URL,
-            caption="👀 *My Orders*\n\nYou haven't placed any orders yet\\.\n\nGo to the Shop to get started\\!",
+            text="👀 *My Orders*\n\nYou haven't placed any orders yet\\.\n\nGo to the Shop to get started\\!",
             parse_mode="MarkdownV2",
             reply_markup=back_home_kb(),
         )
@@ -60,10 +57,9 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows.append([InlineKeyboardButton("🏠 Back to Home", callback_data="main_menu")])
 
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption="👀 *My Orders* \\(last 20\\)\n\nClick an order to see details:",
+        text="👀 *My Orders* \\(last 20\\)\n\nClick an order to see details:",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(rows),
     )
@@ -106,12 +102,10 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb_rows.insert(0, [InlineKeyboardButton("⭐ Rate Purchase", callback_data=f"show_rate_{order_id}")])
         keyboard = InlineKeyboardMarkup(kb_rows)
 
-    from config import GEMINI_LOGO_URL
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=text,
+        text=text,
         parse_mode="MarkdownV2",
         reply_markup=keyboard,
     )
@@ -122,12 +116,10 @@ async def cb_show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     order_id = int(update.callback_query.data.split("_")[2])
     message = update.callback_query.message
 
-    from config import GEMINI_LOGO_URL
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption="⭐ *Please rate your purchase experience:*\n\nYour feedback helps us provide better service\\!",
+        text="⭐ *Please rate your purchase experience:*\n\nYour feedback helps us provide better service\\!",
         parse_mode="MarkdownV2",
         reply_markup=rating_kb(order_id),
     )
@@ -161,14 +153,12 @@ async def cb_rate_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["waiting_for_review_comment"] = order_id
 
     stars = "⭐" * rating
-    from config import GEMINI_LOGO_URL
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=f"❤️ *Thank you for your rating of {stars}\\!*\n\n"
-                f"✍️ Would you like to leave a feedback comment?\n"
-                f"Please type it below and send it, or click **Skip**:",
+        text=f"❤️ *Thank you for your rating of {stars}\\!*\n\n"
+             f"✍️ Would you like to leave a feedback comment?\n"
+             f"Please type it below and send it, or click **Skip**:",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("⏭️ Skip Comment", callback_data=f"skip_comment_{order_id}")]
@@ -181,12 +171,10 @@ async def cb_skip_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("waiting_for_review_comment", None)
     message = update.callback_query.message
 
-    from config import GEMINI_LOGO_URL
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption="✅ *Feedback saved\\!*\n\nThank you for your review\\! 🥰",
+        text="✅ *Feedback saved\\!*\n\nThank you for your review\\! 🥰",
         parse_mode="MarkdownV2",
         reply_markup=back_home_kb(),
     )

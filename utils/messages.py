@@ -23,18 +23,15 @@ def sep() -> str:
 def welcome_msg(first_name: str, balance: float, total_spent: float) -> str:
     membership = get_membership(total_spent)
     name = escape_md(first_name)
-    bal = escape_md(f"${balance:.2f}")
+    bal = escape_md(f"${balance:.2f} USDT")
     mem = escape_md(membership)
     return (
-        f"✨ *WELCOME TO GEMINISTORE, {name.upper()}\\!* ✨\n"
-        f"{sep()}\n"
-        f"🚀 *Premium Google AI Pro 18\\-Month Activations*\n"
-        f"⚡ _Instant delivery, worldwide access, no credentials needed\\._\n"
-        f"{sep()}\n\n"
-        f"👤 *Customer:* {name}\n"
-        f"💳 *Wallet Balance:* `{bal}`\n"
+        f"✨ *Digital store • Instant delivery*  ❞\n"
+        f"Welcome to *GeminiStore*\n"
+        f"🏛️ *Main Menu* 🏛️\n\n"
+        f"💸 *Your Balance:* `{bal}`\n"
         f"🏆 *Membership Tier:* {mem}\n\n"
-        f"👇 _Select an option below to begin shopping or manage your account:_ "
+        f"👇 _Choose an option below_ 👇"
     )
 
 

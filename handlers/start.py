@@ -7,7 +7,7 @@ from utils.keyboards import main_menu_kb, persistent_menu_kb
 from utils.messages import welcome_msg, escape_md
 
 
-from config import GEMINI_LOGO_URL
+from config import WELCOME_BANNER_URL
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
@@ -41,7 +41,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         # Send the main photo with inline menu
         await update.message.reply_photo(
-            photo=GEMINI_LOGO_URL,
+            photo=WELCOME_BANNER_URL,
             caption=text,
             parse_mode="MarkdownV2",
             reply_markup=main_menu_kb()
@@ -51,7 +51,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.message.delete()
         await context.bot.send_photo(
             chat_id=update.effective_user.id,
-            photo=GEMINI_LOGO_URL,
+            photo=WELCOME_BANNER_URL,
             caption=text,
             parse_mode="MarkdownV2",
             reply_markup=main_menu_kb()
@@ -74,7 +74,7 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.delete()
     await context.bot.send_photo(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
+        photo=WELCOME_BANNER_URL,
         caption=text,
         parse_mode="MarkdownV2",
         reply_markup=main_menu_kb()
@@ -99,13 +99,10 @@ async def text_browse_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await update.message.reply_photo(
-        photo=GEMINI_LOGO_URL,
-        caption=(
-            "🛍️ *Shop — Choose a Category*\n\n"
-            "Browse our products below\\. "
-            "Green \\= in stock, Red \\= out of stock\\."
-        ),
+    await update.message.reply_text(
+        "🛍️ *Shop — Choose a Category*\n\n"
+        "Browse our products below\\. "
+        "Green \\= in stock, Red \\= out of stock\\.",
         parse_mode="MarkdownV2",
         reply_markup=shop_categories_kb(cats),
     )

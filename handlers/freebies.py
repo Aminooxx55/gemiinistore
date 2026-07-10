@@ -16,14 +16,11 @@ async def cb_freebies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         products = [dict(r) for r in await cur.fetchall()]
 
-    from config import GEMINI_LOGO_URL
-
     if not products:
         await message.delete()
-        await context.bot.send_photo(
+        await context.bot.send_message(
             chat_id=update.effective_user.id,
-            photo=GEMINI_LOGO_URL,
-            caption="🎁 *Freebies*\n\nNo free items available right now\\. Check back later\\!",
+            text="🎁 *Freebies*\n\nNo free items available right now\\. Check back later\\!",
             parse_mode="MarkdownV2",
             reply_markup=back_home_kb(),
         )
@@ -39,10 +36,9 @@ async def cb_freebies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows.append([InlineKeyboardButton("🏠 Back to Home", callback_data="main_menu")])
 
     await message.delete()
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption="🎁 *Freebies*\n\nClaim these free items — no payment needed\\!",
+        text="🎁 *Freebies*\n\nClaim these free items — no payment needed\\!",
         parse_mode="MarkdownV2",
         reply_markup=InlineKeyboardMarkup(rows),
     )

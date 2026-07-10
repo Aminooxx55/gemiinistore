@@ -38,8 +38,6 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await message.delete()
 
-    from config import GEMINI_LOGO_URL
-
     if len(cats) == 1:
         cat_id = cats[0]["id"]
         cat_name = cats[0]["name"]
@@ -50,19 +48,17 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             products = [dict(r) for r in await cur.fetchall()]
         if products:
-            await context.bot.send_photo(
+            await context.bot.send_message(
                 chat_id=update.effective_user.id,
-                photo=GEMINI_LOGO_URL,
-                caption=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
+                text=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
                 parse_mode="MarkdownV2",
                 reply_markup=products_list_kb(products, cat_id),
             )
             return
 
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=(
+        text=(
             "🛍️ *Shop — Choose a Category*\n\n"
             "Browse our products below\\. "
             "Green \\= in stock, Red \\= out of stock\\."
@@ -90,8 +86,6 @@ async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await message.delete()
 
-    from config import GEMINI_LOGO_URL
-
     if not products:
         await context.bot.send_message(
             chat_id=update.effective_user.id,
@@ -101,10 +95,9 @@ async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
-        caption=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
+        text=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
         parse_mode="MarkdownV2",
         reply_markup=products_list_kb(products, cat_id),
     )
@@ -138,11 +131,12 @@ async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await message.delete()
 
-    from config import GEMINI_LOGO_URL
+    from config import DEFAULT_PRODUCT_BANNER_URL
+    img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
 
     await context.bot.send_photo(
         chat_id=update.effective_user.id,
-        photo=GEMINI_LOGO_URL,
+        photo=img_url,
         caption=text,
         parse_mode="MarkdownV2",
         reply_markup=product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb(),

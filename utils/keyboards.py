@@ -14,21 +14,23 @@ def persistent_menu_kb() -> ReplyKeyboardMarkup:
 # ── Main Menu ───────────────────────────────────────────────────────────────
 def main_menu_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛍️  SHOP", callback_data="shop_home")],
+        [InlineKeyboardButton("🛍️ Products", callback_data="shop_home")],
         [
-            InlineKeyboardButton("💵 Wallet",      callback_data="wallet_home"),
-            InlineKeyboardButton("🎡 Spin & Win",  callback_data="spin_home"),
-            InlineKeyboardButton("👀 Orders",      callback_data="orders_home"),
+            InlineKeyboardButton("👤 Profile",     callback_data="profile_home"),
+            InlineKeyboardButton("📋 Orders",      callback_data="orders_home"),
         ],
         [
-            InlineKeyboardButton("😊 Profile",     callback_data="profile_home"),
+            InlineKeyboardButton("💵 Wallet",      callback_data="wallet_home"),
             InlineKeyboardButton("📣 Refer & Earn", callback_data="referral_home"),
         ],
         [
-            InlineKeyboardButton("💬 Support Chat", callback_data="support_chat"),
+            InlineKeyboardButton("🎡 Spin & Win",  callback_data="spin_home"),
             InlineKeyboardButton("📧 Email Trials", callback_data="email_trials"),
         ],
-        [InlineKeyboardButton("🗑️ Clear Chat",     callback_data="clear_chat")],
+        [
+            InlineKeyboardButton("💬 Support Chat", callback_data="support_chat"),
+            InlineKeyboardButton("🗑️ Clear Chat",     callback_data="clear_chat"),
+        ],
     ])
 
 

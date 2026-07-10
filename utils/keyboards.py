@@ -90,13 +90,11 @@ def confirm_purchase_kb(product_id: int, qty: int) -> InlineKeyboardMarkup:
     buttons.append([InlineKeyboardButton("💳 Wallet — pay now", callback_data=f"pay_wallet_{product_id}_{qty}")])
     
     if is_cryptomus_enabled():
-        buttons.append([InlineKeyboardButton("⚡ Auto Pay (Binance Pay, BEP20, TRC20)", callback_data=f"pay_cryptomus_{product_id}_{qty}")])
+        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Auto)", callback_data=f"pay_cryptomus_{product_id}_{qty}")])
+    else:
+        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Manual)", callback_data=f"pay_binance_{product_id}_{qty}")])
         
     buttons.extend([
-        [InlineKeyboardButton("🔷 Binance Pay (Manual)", callback_data=f"pay_binance_{product_id}_{qty}")],
-        [InlineKeyboardButton("🟡 USDT (BEP20) (Manual)", callback_data=f"pay_bep20_{product_id}_{qty}")],
-        [InlineKeyboardButton("💬 Pay Admin Directly",    url="https://t.me/lovable47")],
-        [InlineKeyboardButton("💬 Contact Admin for Discount", url="https://t.me/lovable47")],
         [InlineKeyboardButton("🎟️ Apply Coupon",          callback_data=f"coupon_{product_id}_{qty}")],
         [InlineKeyboardButton("✏️ Change Quantity",       callback_data=f"buy_start_{product_id}")],
         [InlineKeyboardButton("❌ Cancel",                callback_data="main_menu")],
@@ -117,13 +115,11 @@ def topup_method_kb(amount: float) -> InlineKeyboardMarkup:
     buttons = []
     
     if is_cryptomus_enabled():
-        buttons.append([InlineKeyboardButton("⚡ Auto Deposit (Binance Pay, BEP20, TRC20)", callback_data=f"topup_cryptomus_{amount}")])
+        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Auto)", callback_data=f"topup_cryptomus_{amount}")])
+    else:
+        buttons.append([InlineKeyboardButton("🔷 Binance Pay (Manual)",  callback_data=f"topup_binance_{amount}")])
         
     buttons.extend([
-        [InlineKeyboardButton("🟡 USDT BEP20 (Manual)",   callback_data=f"topup_bep20_{amount}")],
-        [InlineKeyboardButton("🔷 Binance Pay (Manual)",  callback_data=f"topup_binance_{amount}")],
-        [InlineKeyboardButton("💬 Pay Admin Directly",  url="https://t.me/lovable47")],
-        [InlineKeyboardButton("💬 Contact Admin for Discount", url="https://t.me/lovable47")],
         [InlineKeyboardButton("⬅️ Back",         callback_data="wallet_home")],
     ])
     return InlineKeyboardMarkup(buttons)

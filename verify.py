@@ -16,9 +16,9 @@ def main():
         print("Error: TELEGRAM_BOT_TOKEN not found in .env")
         return
 
-    # Check for verification code in verify_code.txt or direct input
-    code = "9e723c36"
-    print(f"Setting bot description and about text to: {code}")
+    # Clear/restore default bot description
+    code = "🤖 Premium Google AI Pro / Gemini Advanced 18-Month activations. Instant automatic delivery, 100% secure."
+    print(f"Restoring default bot description: {code}")
 
     r1 = requests.post(f"https://api.telegram.org/bot{token}/setMyDescription", json={"description": code})
     r2 = requests.post(f"https://api.telegram.org/bot{token}/setMyAboutText", json={"about": code})

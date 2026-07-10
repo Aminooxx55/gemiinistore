@@ -71,14 +71,26 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_spent=user["total_spent"],
     )
     message = update.callback_query.message
-    await message.delete()
-    await context.bot.send_photo(
-        chat_id=update.effective_user.id,
-        photo=get_photo_object(WELCOME_BANNER_URL),
-        caption=text,
-        parse_mode="MarkdownV2",
-        reply_markup=main_menu_kb()
-    )
+    
+    from telegram import InputMediaPhoto
+    try:
+        await message.edit_media(
+            media=InputMediaPhoto(
+                media=get_photo_object(WELCOME_BANNER_URL),
+                caption=text,
+                parse_mode="MarkdownV2"
+            ),
+            reply_markup=main_menu_kb()
+        )
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(WELCOME_BANNER_URL),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=main_menu_kb()
+        )
 
 
 async def text_browse_shop(update: Update, context: ContextTypes.DEFAULT_TYPE):

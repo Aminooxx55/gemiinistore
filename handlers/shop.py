@@ -26,18 +26,25 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     cats = [c for c in cats if "Freeb" not in c["name"]]
 
+    from config import WELCOME_BANNER_URL
+
     if not cats:
-        await message.delete()
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text="🛍️ No categories available yet\\. Check back soon\\!",
-            parse_mode="MarkdownV2",
-            reply_markup=back_home_kb()
-        )
+        text = "🛍️ No categories available yet\\. Check back soon\\!"
+        markup = back_home_kb()
+        try:
+            await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+        except Exception:
+            await message.delete()
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=get_photo_object(WELCOME_BANNER_URL),
+                caption=text,
+                parse_mode="MarkdownV2",
+                reply_markup=markup
+            )
         return
 
-    await message.delete()
-
+    # Check if len(cats) == 1
     if len(cats) == 1:
         cat_id = cats[0]["id"]
         cat_name = cats[0]["name"]
@@ -48,24 +55,38 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             products = [dict(r) for r in await cur.fetchall()]
         if products:
-            await context.bot.send_message(
-                chat_id=update.effective_user.id,
-                text=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
-                parse_mode="MarkdownV2",
-                reply_markup=products_list_kb(products, cat_id),
-            )
+            text = f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:"
+            markup = products_list_kb(products, cat_id)
+            try:
+                await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+            except Exception:
+                await message.delete()
+                await context.bot.send_photo(
+                    chat_id=update.effective_user.id,
+                    photo=get_photo_object(WELCOME_BANNER_URL),
+                    caption=text,
+                    parse_mode="MarkdownV2",
+                    reply_markup=markup
+                )
             return
 
-    await context.bot.send_message(
-        chat_id=update.effective_user.id,
-        text=(
-            "🛍️ *Shop — Choose a Category*\n\n"
-            "Browse our products below\\. "
-            "Green \\= in stock, Red \\= out of stock\\."
-        ),
-        parse_mode="MarkdownV2",
-        reply_markup=shop_categories_kb(cats),
+    text = (
+        "🛍️ *Shop — Choose a Category*\n\n"
+        "Browse our products below\\. "
+        "Green \\= in stock, Red \\= out of stock\\."
     )
+    markup = shop_categories_kb(cats)
+    try:
+        await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(WELCOME_BANNER_URL),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=markup
+        )
 
 
 async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,24 +104,37 @@ async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cat_row = await cur2.fetchone()
 
     cat_name = cat_row["name"] if cat_row else "Category"
-
-    await message.delete()
+    from config import WELCOME_BANNER_URL
 
     if not products:
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text=f"📦 *{escape_md(cat_name)}*\n\nNo products in this category yet\\.",
-            parse_mode="MarkdownV2",
-            reply_markup=back_home_kb()
-        )
+        text = f"📦 *{escape_md(cat_name)}*\n\nNo products in this category yet\\."
+        markup = back_home_kb()
+        try:
+            await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+        except Exception:
+            await message.delete()
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=get_photo_object(WELCOME_BANNER_URL),
+                caption=text,
+                parse_mode="MarkdownV2",
+                reply_markup=markup
+            )
         return
 
-    await context.bot.send_message(
-        chat_id=update.effective_user.id,
-        text=f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:",
-        parse_mode="MarkdownV2",
-        reply_markup=products_list_kb(products, cat_id),
-    )
+    text = f"📦 *{escape_md(cat_name)}*\n\nSelect a product to view details:"
+    markup = products_list_kb(products, cat_id)
+    try:
+        await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(WELCOME_BANNER_URL),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=markup
+        )
 
 
 async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -112,14 +146,21 @@ async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cur = await db.execute("SELECT * FROM products WHERE id=?", (prod_id,))
         p = await cur.fetchone()
 
+    from config import WELCOME_BANNER_URL
     if not p:
-        await message.delete()
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text="❌ Product not found\\.",
-            parse_mode="MarkdownV2",
-            reply_markup=back_home_kb()
-        )
+        text = "❌ Product not found\\."
+        markup = back_home_kb()
+        try:
+            await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+        except Exception:
+            await message.delete()
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=get_photo_object(WELCOME_BANNER_URL),
+                caption=text,
+                parse_mode="MarkdownV2",
+                reply_markup=markup
+            )
         return
 
     p = dict(p)
@@ -129,18 +170,30 @@ async def cb_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if out_of_stock:
         text += "\n\n❌ *OUT OF STOCK*"
 
-    await message.delete()
-
     from config import DEFAULT_PRODUCT_BANNER_URL
     img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
+    markup = product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb()
 
-    await context.bot.send_photo(
-        chat_id=update.effective_user.id,
-        photo=get_photo_object(img_url),
-        caption=text,
-        parse_mode="MarkdownV2",
-        reply_markup=product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb(),
-    )
+    # Change the media (image) to the product's image and edit caption/markup
+    from telegram import InputMediaPhoto
+    try:
+        await message.edit_media(
+            media=InputMediaPhoto(
+                media=get_photo_object(img_url),
+                caption=text,
+                parse_mode="MarkdownV2"
+            ),
+            reply_markup=markup
+        )
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(img_url),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=markup
+        )
 
 
 async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -157,21 +210,28 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     p = dict(p)
-
     message = update.callback_query.message
-    await message.delete()
+
+    from config import DEFAULT_PRODUCT_BANNER_URL
+    img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
 
     if p["is_free"]:
         # Skip quantity for free items, go straight to confirm
         context.user_data["pending"] = {"product_id": prod_id, "qty": 1, "coupon_discount": 0.0}
         user = await get_user(update.effective_user.id)
         text = confirm_purchase_msg(p["name"], 1, 0.0, 0.0, user["balance"])
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=confirm_purchase_kb(prod_id, 1)
-        )
+        markup = confirm_purchase_kb(prod_id, 1)
+        try:
+            await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+        except Exception:
+            await message.delete()
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=get_photo_object(img_url),
+                caption=text,
+                parse_mode="MarkdownV2",
+                reply_markup=markup
+            )
         return
 
     price_str = escape_md(f"${p['price']:.2f}")
@@ -184,17 +244,24 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• 50\\+ items: *\\$1\\.10* each\n"
         )
 
-    await context.bot.send_message(
-        chat_id=update.effective_user.id,
-        text=(
-            f"🛒 *Buy: {escape_md(p['name'])}*\n\n"
-            f"💲 Base Price: {price_str} each"
-            f"{bulk_info}\n"
-            f"Select quantity:"
-        ),
-        parse_mode="MarkdownV2",
-        reply_markup=quantity_kb(prod_id),
+    text = (
+        f"🛒 *Buy: {escape_md(p['name'])}*\n\n"
+        f"💲 Base Price: {price_str} each"
+        f"{bulk_info}\n"
+        f"Select quantity:"
     )
+    markup = quantity_kb(prod_id)
+    try:
+        await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(img_url),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=markup
+        )
 
 
 async def cb_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -237,10 +304,22 @@ async def _show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, prod
     text = confirm_purchase_msg(
         p["name"], qty, unit_price, total, user["balance"], coupon_discount
     )
-    await update.callback_query.edit_message_text(
-        text, parse_mode="MarkdownV2",
-        reply_markup=confirm_purchase_kb(prod_id, qty),
-    )
+    message = update.callback_query.message
+    markup = confirm_purchase_kb(prod_id, qty)
+    
+    from config import DEFAULT_PRODUCT_BANNER_URL
+    img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
+    try:
+        await message.edit_caption(caption=text, parse_mode="MarkdownV2", reply_markup=markup)
+    except Exception:
+        await message.delete()
+        await context.bot.send_photo(
+            chat_id=update.effective_user.id,
+            photo=get_photo_object(img_url),
+            caption=text,
+            parse_mode="MarkdownV2",
+            reply_markup=markup
+        )
 
 
 async def cb_custom_qty_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -61,6 +61,12 @@ async def main():
                 print(f"Proxy {proxy} -> Response: {r.text[:200]}")
                 if r.status_code in [200, 400]:
                     print(f"🎉 SUCCESS! Proxy {proxy} worked!")
+                    if r.status_code == 200:
+                        data = r.json().get("data", [])
+                        if data:
+                            print("First Tx Full Details:", json.dumps(data[0], indent=2))
+                        else:
+                            print("No transactions found.")
                     break
         except Exception as e:
             pass

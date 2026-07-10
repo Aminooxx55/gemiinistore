@@ -9,7 +9,7 @@ def main():
             for line in f:
                 if "=" in line and not line.strip().startswith("#"):
                     k, v = line.strip().split("=", 1)
-                    if k.strip() == "TELEGRAM_BOT_TOKEN":
+                    if k.strip() in ("TELEGRAM_BOT_TOKEN", "BOT_TOKEN"):
                         token = v.strip().strip("'\"")
 
     if not token:

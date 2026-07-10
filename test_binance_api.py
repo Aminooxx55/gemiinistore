@@ -26,30 +26,25 @@ async def main():
     
     print("=== Testing Binance SAPI with Proxies ===")
     
-    # Fetch European proxies from ProxyScrape
+    # Fetch HTTP proxies from TheSpeedX GitHub list
     proxies = []
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=DE,FR,NL,GB,IT,ES&ssl=yes&anonymity=anonymous")
+            r = await client.get("https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt")
             if r.status_code == 200:
-                raw_proxies = r.text.strip().split("\r\n")
-                # Clean empty lines
+                raw_proxies = r.text.strip().split("\n")
                 proxies = [p.strip() for p in raw_proxies if p.strip()]
-                print(f"Fetched {len(proxies)} proxies from Proxyscrape.")
+                print(f"Fetched {len(proxies)} proxies from GitHub SOCKS-List.")
     except Exception as e:
         print("Failed to fetch proxies:", e)
 
-    if not proxies:
-        # Fallback to a few public proxy lists if empty
-        proxies = ["51.15.242.202:3128", "163.172.31.235:80", "51.158.154.173:3128"]
-
     # Try each proxy
-    for proxy in proxies[:15]:  # limit to first 15 for speed
+    for proxy in proxies[:30]:  # limit to first 30 for speed
         proxy_url = f"http://{proxy}"
         print(f"Testing Proxy: {proxy_url}")
         try:
             # Create httpx client with proxy
-            async with httpx.AsyncClient(proxies={"http://": proxy_url, "https://": proxy_url}, timeout=8.0) as client:
+            async with httpx.AsyncClient(proxies={"http://": proxy_url, "https://": proxy_url}, timeout=5.0) as client:
                 r = await client.get(
                     "https://api.binance.com/sapi/v1/pay/transactions",
                     headers=headers,
@@ -61,7 +56,7 @@ async def main():
                     print(f"🎉 SUCCESS! Proxy {proxy} worked!")
                     break
         except Exception as e:
-            print(f"Proxy {proxy} failed with error: {e}")
+            pass
 
 if __name__ == "__main__":
     asyncio.run(main())

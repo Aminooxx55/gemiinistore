@@ -146,7 +146,8 @@ CREATE TABLE IF NOT EXISTS product_stock (
     data       TEXT NOT NULL,
     is_sold    INTEGER DEFAULT 0,
     sold_at    TEXT,
-    order_id   INTEGER REFERENCES orders(id) ON DELETE SET NULL
+    order_id   INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+    created_at TEXT DEFAULT (datetime('now'))
 )"""
 
 CREATE_USER_SPINS = """
@@ -196,6 +197,13 @@ async def init_db():
         # Migration: Add image_url column if not exists
         try:
             await db.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
+            await db.commit()
+        except Exception:
+            pass
+
+        # Migration: Add created_at column to product_stock if not exists
+        try:
+            await db.execute("ALTER TABLE product_stock ADD COLUMN created_at TEXT DEFAULT (datetime('now'))")
             await db.commit()
         except Exception:
             pass

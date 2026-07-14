@@ -108,6 +108,7 @@ async def poll_pending_payments(context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="MarkdownV2"
                 )
             except Exception:
+                logger.exception('Failed to notify user %s about expired/failed order #%s', user_id, order_id)
                 pass
 
     # Process pending top-up requests
@@ -170,6 +171,7 @@ async def poll_pending_payments(context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="MarkdownV2"
                 )
             except Exception:
+                logger.exception('Failed to notify user %s about expired/failed top-up #%s', user_id, req_id)
                 pass
 
 

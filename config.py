@@ -8,8 +8,10 @@ BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
 ADMIN_ID: int = int(os.getenv("ADMIN_ID", "0"))
 BOT_USERNAME: str = os.getenv("BOT_USERNAME", "myshopbot")
 
-# Crypto addresses
-USDT_TRC20_ADDRESS: str = os.getenv("USDT_TRC20_ADDRESS", "")
+USDT_POL_ADDRESS: str = os.getenv("USDT_POL_ADDRESS", "")
+if not USDT_POL_ADDRESS:
+    USDT_POL_ADDRESS = "0xc2398c59f510bb5b3e181f862856df9428913bfb"
+
 USDT_BEP20_ADDRESS: str = os.getenv("USDT_BEP20_ADDRESS", "")
 BINANCE_PAY_ID: str = os.getenv("BINANCE_PAY_ID", "")
 
@@ -54,3 +56,14 @@ def get_membership(total_spent: float) -> str:
 
 WELCOME_BANNER_URL: str = "static/welcome_banner.png"
 DEFAULT_PRODUCT_BANNER_URL: str = "static/product_banner.png"
+
+# Support username
+SUPPORT_USERNAME: str = os.getenv("SUPPORT_USERNAME", "@lovable47")
+
+
+# Order status constants
+class OrderStatus:
+    PENDING = 'pending'
+    PAID = 'paid'
+    DELIVERED = 'delivered'
+    CANCELLED = 'cancelled'

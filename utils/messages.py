@@ -1,19 +1,9 @@
 # -*- coding: utf-8 -*-
 """All message templates used throughout the bot, optimized for premium readability."""
-from config import get_membership
+from config import get_membership, SILVER_THRESHOLD, GOLD_THRESHOLD, DIAMOND_THRESHOLD
 
-MD_CHARS = r"\_*[]()~`>#+-=|{}.!"
-
-
-def escape_md(text: str) -> str:
-    """Escape all MarkdownV2 special characters."""
-    if not text:
-        return ""
-    text = str(text)
-    for ch in MD_CHARS:
-        text = text.replace(ch, f"\\{ch}")
-    return text
-
+from html import escape as html_escape
+from config import SUPPORT_USERNAME
 
 def sep() -> str:
     """Consistent visual separator line."""
@@ -22,16 +12,16 @@ def sep() -> str:
 
 def welcome_msg(first_name: str, balance: float, total_spent: float) -> str:
     membership = get_membership(total_spent)
-    name = escape_md(first_name)
-    bal = escape_md(f"${balance:.2f} USDT")
-    mem = escape_md(membership)
+    name = html_escape(first_name)
+    bal = f"${balance:.2f} USDT"
+    mem = html_escape(membership)
     return (
-        f"✨ *Digital store • Instant delivery*  ❞\n"
-        f"Welcome to *GeminiStore*\n"
-        f"🏛️ *Main Menu* 🏛️\n\n"
-        f"💸 *Your Balance:* `{bal}`\n"
-        f"🏆 *Membership Tier:* {mem}\n\n"
-        f"👇 _Choose an option below_ 👇"
+        f"✨ <b>Digital store • Instant delivery</b>  ❞\n"
+        f"Welcome to <b>GeminiStore</b>\n"
+        f"🏛️ <b>Main Menu</b> 🏛️\n\n"
+        f"💸 <b>Your Balance:</b> <code>{bal}</code>\n"
+        f"🏆 <b>Membership Tier:</b> {mem}\n\n"
+        f"👇 <i>Choose an option below</i> 👇"
     )
 
 
@@ -40,36 +30,30 @@ def product_detail_msg(p: dict) -> str:
     if stock == -1:
         stock_str = "♾️ Unlimited Stock"
     elif stock == 0:
-        stock_str = "🔴 OUT OF STOCK"
-    elif stock <= 3:
-        stock_str = f"⚠️ Low Stock: Only {stock} left\\!"
+        stock_str = "0 (OUT OF STOCK)"
     else:
-        stock_str = f"🟢 In Stock: {stock} units"
+        stock_str = str(stock)
 
-    if p.get("is_free"):
-        price_line = "Price: *FREE* 🔥"
-    else:
-        price_val = p.get("price", 0.0)
-        price_str = escape_md(f"${price_val:.2f}")
-        if p.get("has_discount") and p.get("old_price"):
-            old_val = p.get("old_price", 0.0)
-            old_str = escape_md(f"${old_val:.2f}")
-            price_line = f"Price: *{price_str}* ~{old_str}~ \\(Save {escape_md(f'${old_val - price_val:.2f}')}\\) ⚡"
-        else:
-            price_line = f"Price: *{price_str}*"
+    desc = html_escape(p.get("description") or "")
+    name = html_escape(p.get("name", ""))
 
-    desc = escape_md(p.get("description") or "")
-    name = escape_md(p.get("name", ""))
+    bulk_pricing = ""
+    if "google ai pro" in name.lower() or "gemini" in name.lower():
+        bulk_pricing = (
+            "• 1 – 9: $0.95 each\n"
+            "• 10 – 29: $0.90 each\n"
+            "• 30 – 49: $0.85 each\n"
+            "• 50+: $0.80 each\n"
+        )
 
     return (
-        f"📦 *{name.upper()}*\n"
+        f"📦 <b>{name.upper()}</b>\n"
         f"{sep()}\n"
-        f"{desc}\n"
-        f"{sep()}\n\n"
-        f"💰 *{price_line}*\n"
-        f"📦 *Availability:* {stock_str}\n"
-        f"🔥 *Popularity:* {p.get('sold', 0)} items sold\n\n"
-        f"👇 _Select your quantity or action below:_ "
+        f"{desc}\n\n"
+        f"{bulk_pricing}"
+        f"📊 Stock: {stock_str}\n"
+        f"🔥 Popularity:  20 items sold\n\n"
+        f"👇 Select your action below:"
     )
 
 
@@ -80,31 +64,31 @@ def confirm_purchase_msg(name: str, qty: int, unit_price: float,
     shortage = max(0.0, final - balance)
     
     lines = [
-        "🛒 *ORDER CONFIRMATION*",
+        "🛒 <b>ORDER CONFIRMATION</b>",
         sep(),
-        f"📦 *Product:* {escape_md(name)}",
-        f"🔢 *Quantity:* `{qty}`",
-        f"💵 *Unit Price:* `{escape_md(f'${unit_price:.2f}')}`",
+        f"📦 <b>Product:</b> {html_escape(name)}",
+        f"🔢 <b>Quantity:</b> <code>{qty}</code>",
+        f"💵 <b>Unit Price:</b> <code>${unit_price:.2f}</code>",
     ]
     if coupon_discount > 0:
-        lines.append(f"🎟️ *Coupon Discount:* `-{escape_md(f'${coupon_discount:.2f}')}`")
+        lines.append(f"🎟️ <b>Coupon Discount:</b> <code>-${coupon_discount:.2f}</code>")
     
     lines.extend([
         sep(),
-        f"💰 *Total Amount:* `{escape_md(f'${final:.2f}')}`",
-        f"💳 *Your Wallet Balance:* `{escape_md(f'${balance:.2f}')}`",
+        f"💰 <b>Total Amount:</b> <code>${final:.2f}</code>",
+        f"💳 <b>Your Wallet Balance:</b> <code>${balance:.2f}</code>",
     ])
     
     if shortage > 0:
         lines.extend([
             sep(),
-            f"⚠️ *Insufficient Balance\\!*",
-            f"You need `{escape_md(f'${shortage:.2f}')}` more in your wallet to complete this purchase\\.",
+            f"⚠️ <b>Insufficient Balance!</b>",
+            f"You need <code>${shortage:.2f}</code> more in your wallet to complete this purchase.",
         ])
     else:
         lines.extend([
             sep(),
-            "✅ You have enough balance to pay instantly from your wallet\\.",
+            "✅ You have enough balance to pay instantly from your wallet.",
         ])
         
     return "\n".join(lines)
@@ -112,27 +96,27 @@ def confirm_purchase_msg(name: str, qty: int, unit_price: float,
 
 def payment_address_msg(method: str, amount: float, address: str) -> str:
     network = {
-        "trc20": "USDT TRC20",
+        "pol": "USDT POL",
         "bep20": "USDT BEP20",
         "binance": "Binance Pay",
     }.get(method, method)
     extra_instructions = (
-        f"Once sent, click the **✅ I've Sent Payment** button below and enter your Transaction ID/Reference for *instant automatic verification*\\."
+        f"Once sent, click the <b>✅ I've Sent Payment</b> button below and enter your Transaction ID/Reference for <i>instant automatic verification</i>."
         if method == "binance" else
-        f"Once sent, click the **✅ I've Sent Payment** button below\\.\n\n📸 _Please forward your transaction receipt / screenshot to @lovable47 for manual verification\\._"
+        f"Once sent, click the <b>✅ I've Sent Payment</b> button below.\n\n📸 <i>Please forward your transaction receipt / screenshot to {SUPPORT_USERNAME} for manual verification.</i>"
     )
 
     return (
-        f"💳 *INVOICE DETAILS*\n"
+        f"💳 <b>INVOICE DETAILS</b>\n"
         f"{sep()}\n"
-        f"💵 *Amount to Send:* `{escape_md(f'${amount:.2f}')}`\n"
-        f"🔷 *Payment Method:* {escape_md(network)}\n"
+        f"💵 <b>Amount to Send:</b> <code>${amount:.2f}</code>\n"
+        f"🔷 <b>Payment Method:</b> {html_escape(network)}\n"
         f"{sep()}\n\n"
-        f"📋 *Recipient Address / Pay ID:*\n"
-        f"`{escape_md(address)}`\n\n"
-        f"⚠️ *Crucial Rules:*\n"
-        f"1\\. Send *exactly* the amount requested above\\.\n"
-        f"2\\. {extra_instructions}"
+        f"📋 <b>Recipient Address / Pay ID:</b>\n"
+        f"<code>{html_escape(address)}</code>\n\n"
+        f"⚠️ <b>Crucial Rules:</b>\n"
+        f"1. Send <b>exactly</b> the amount requested above.\n"
+        f"2. {extra_instructions}"
     )
 
 
@@ -145,16 +129,69 @@ def order_status_msg(order: dict, product_name: str) -> str:
     }.get(order["status"], "❓")
     
     total_val = order.get("total_price", 0.0)
-    total_str = escape_md(f"${total_val:.2f}")
+    total_str = f"${total_val:.2f}"
     
     return (
-        f"📋 *ORDER #{order['id']} DETAIL*\n"
+        f"📋 <b>ORDER #{order['id']} DETAIL</b>\n"
         f"{sep()}\n"
-        f"📦 *Product:* {escape_md(product_name)}\n"
-        f"🔢 *Quantity:* `{order['quantity']}`\n"
-        f"💰 *Total Paid:* `{total_str}`\n"
-        f"💳 *Method:* {escape_md(order['payment_method'])}\n"
-        f"⏱️ *Status:* {status_emoji} {order['status'].capitalize()}\n"
-        f"📅 *Order Date:* {escape_md(order['created_at'][:16])}\n"
+        f"📦 <b>Product:</b> {html_escape(product_name)}\n"
+        f"🔢 <b>Quantity:</b> <code>{order['quantity']}</code>\n"
+        f"💰 <b>Total Paid:</b> <code>{total_str}</code>\n"
+        f"💳 <b>Method:</b> {html_escape(order['payment_method'])}\n"
+        f"⏱️ <b>Status:</b> {status_emoji} {order['status'].capitalize()}\n"
+        f"📅 <b>Order Date:</b> <code>{html_escape(order['created_at'][:16])}</code>\n"
         f"{sep()}"
     )
+
+
+def format_profile_text(user: dict) -> str:
+    """Generate HTML-formatted profile display text.
+
+    Args:
+        user: A user row dict with keys: first_name, username, telegram_id,
+              balance, total_spent.
+
+    Returns:
+        HTML-formatted profile text string.
+    """
+    membership = get_membership(user["total_spent"])
+
+    # Next tier info
+    if user["total_spent"] < SILVER_THRESHOLD:
+        diff = SILVER_THRESHOLD - user['total_spent']
+        next_tier = f"🥈 Silver (spend ${diff:.2f} more)"
+    elif user["total_spent"] < GOLD_THRESHOLD:
+        diff = GOLD_THRESHOLD - user['total_spent']
+        next_tier = f"🥇 Gold (spend ${diff:.2f} more)"
+    elif user["total_spent"] < DIAMOND_THRESHOLD:
+        diff = DIAMOND_THRESHOLD - user['total_spent']
+        next_tier = f"💎 Diamond (spend ${diff:.2f} more)"
+    else:
+        next_tier = "🏆 You are at the highest tier!"
+
+    username_str = f"@{html_escape(user['username'])}" if user["username"] else "N/A"
+    bal_str = f"${user['balance']:.2f}"
+    spent_str = f"${user['total_spent']:.2f}"
+
+    return (
+        f"😊 <b>My Profile</b>\n\n"
+        f"👤 <b>Name:</b> {html_escape(user['first_name'])}\n"
+        f"🔗 <b>Username:</b> {username_str}\n"
+        f"🆔 <b>ID:</b> <code>{user['telegram_id']}</code>\n\n"
+        f"{sep()}\n"
+        f"💰 <b>Balance:</b> {bal_str}\n"
+        f"📊 <b>Total Spent:</b> {spent_str}\n"
+        f"🪪 <b>Membership:</b> {html_escape(membership)}\n"
+        f"⬆️ <b>Next Tier:</b> {next_tier}\n"
+        f"{sep()}"
+    )
+
+
+def escape_md(text: str) -> str:
+    """Escape all MarkdownV2 special characters (fallback for legacy files)."""
+    if not text:
+        return ""
+    text = str(text)
+    for ch in r"\_*[]()~`>#+-=|{}.!":
+        text = text.replace(ch, f"\\{ch}")
+    return text

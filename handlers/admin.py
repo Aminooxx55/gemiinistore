@@ -1,4 +1,5 @@
 """Admin panel — full management of products, orders, users, top-ups, coupons, broadcast."""
+import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ContextTypes, CommandHandler, CallbackQueryHandler,
@@ -32,6 +33,25 @@ def admin_only(func):
             return
         return await func(update, context)
     return wrapper
+
+
+async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel any active admin conversation."""
+    await update.message.reply_text("❌ Operation cancelled.", reply_markup=admin_kb())
+    return ConversationHandler.END
+
+
+async def timeout_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle conversation timeout."""
+    if update.effective_user:
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text="⏰ Conversation timed out. Use /admin to start again.",
+                reply_markup=admin_kb()
+            )
+        except Exception:
+            logging.exception("Error sending timeout message")
 
 
 # ── Admin Home ────────────────────────────────────────────────────────────────
@@ -336,6 +356,7 @@ async def cb_admin_order_paid(update: Update, context: ContextTypes.DEFAULT_TYPE
                 parse_mode="MarkdownV2"
             )
         except Exception:
+            logging.exception("Failed to notify user about payment confirmation for order #%s", order_id)
             pass
 
 
@@ -379,6 +400,7 @@ async def recv_deliver_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=rating_kb(order_id)
             )
         except Exception:
+            logging.exception("Failed to send delivery info to user for order #%s", order_id)
             pass
 
     await update.message.reply_text(
@@ -416,6 +438,7 @@ async def cb_admin_order_cancel(update: Update, context: ContextTypes.DEFAULT_TY
                 parse_mode="MarkdownV2"
             )
         except Exception:
+            logging.exception("Failed to notify user about order cancellation for order #%s", order_id)
             pass
 
 
@@ -503,6 +526,7 @@ async def cb_admin_topup_approve(update: Update, context: ContextTypes.DEFAULT_T
             parse_mode="MarkdownV2"
         )
     except Exception:
+        logging.exception("Failed to notify user about top-up approval for request #%s", req_id)
         pass
     await cb_admin_topups(update, context)
 
@@ -530,6 +554,7 @@ async def cb_admin_topup_reject(update: Update, context: ContextTypes.DEFAULT_TY
             parse_mode="MarkdownV2"
         )
     except Exception:
+        logging.exception("Failed to notify user about top-up rejection for request #%s", req_id)
         pass
     await cb_admin_topups(update, context)
 
@@ -614,6 +639,7 @@ async def recv_add_balance_amount(update: Update, context: ContextTypes.DEFAULT_
             parse_mode="MarkdownV2"
         )
     except Exception:
+        logging.exception("Failed to notify user about balance update for user %s", uid)
         pass
     return ConversationHandler.END
 
@@ -752,6 +778,7 @@ async def run_broadcast_in_background(bot, user_ids: list, text: str, admin_id: 
                 # Try MarkdownV2 first
                 await bot.send_message(chat_id=uid, text=text, parse_mode="MarkdownV2")
             except Exception:
+                logging.exception("Failed to send broadcast message (MarkdownV2 fallback) to user %s", uid)
                 # Fallback to plain text if markdown formatting is invalid
                 await bot.send_message(chat_id=uid, text=text)
             sent += 1
@@ -763,8 +790,10 @@ async def run_broadcast_in_background(bot, user_ids: list, text: str, admin_id: 
                 await bot.send_message(chat_id=uid, text=text)
                 sent += 1
             except Exception:
+                logging.exception("Failed to send broadcast retry to user %s after rate limit", uid)
                 failed += 1
         except Exception:
+            logging.exception("Failed to send broadcast to user %s", uid)
             failed += 1
 
     try:
@@ -776,6 +805,7 @@ async def run_broadcast_in_background(bot, user_ids: list, text: str, admin_id: 
             parse_mode="MarkdownV2"
         )
     except Exception:
+        logging.exception("Failed to send broadcast completion notification to admin %s", admin_id)
         pass
 
 
@@ -944,28 +974,36 @@ def register_admin_handlers(app):
             ADMIN_PROD_EMOJI: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_prod_emoji)],
             ADMIN_PROD_CAT:   [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_prod_cat)],
         },
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Broadcast conversation
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_admin_broadcast, pattern="^admin_broadcast$")],
         states={ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_broadcast)]},
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Add balance conversation
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_admin_add_balance, pattern=r"^admin_addbal_\d+$")],
         states={ADMIN_ADD_BALANCE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_add_balance_amount)]},
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Deliver order conversation
     app.add_handler(ConversationHandler(
         entry_points=[CallbackQueryHandler(cb_admin_order_delivered, pattern=r"^admin_ord_delivered_\d+$")],
         states={ADMIN_DELIVER_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_deliver_info)]},
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # New coupon conversation
@@ -976,7 +1014,9 @@ def register_admin_handlers(app):
             ADMIN_COUPON_DISC: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_coupon_disc)],
             ADMIN_COUPON_USES: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_coupon_uses)],
         },
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Add stock conversation
@@ -985,6 +1025,8 @@ def register_admin_handlers(app):
         states={
             ADMIN_UPLOAD_STOCK: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_stock_data)],
         },
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 

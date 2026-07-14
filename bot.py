@@ -63,19 +63,20 @@ async def log_update_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not user:
         return
 
-    name = escape_md(user.first_name or "User")
-    username = f"@{escape_md(user.username)}" if user.username else "No Username"
-    user_info = f"👤 *{name}* \\({username}, `{user.id}`\\)"
+    from html import escape as html_escape
+    name = html_escape(user.first_name or "User")
+    username = f"@{html_escape(user.username)}" if user.username else "No Username"
+    user_info = f"👤 <b>{name}</b> ({username}, <code>{user.id}</code>)"
 
     log_msg = None
     action_str = None
     if update.message and update.message.text:
-        log_msg = f"{user_info} sent:\n`{escape_md(update.message.text)}`"
+        log_msg = f"{user_info} sent:\n<code>{html_escape(update.message.text)}</code>"
         action_str = f"Command: {update.message.text}"
     elif update.callback_query and update.callback_query.data:
         from utils.helpers import translate_callback_data
         translated_action = await translate_callback_data(update.callback_query.data)
-        log_msg = f"{user_info} clicked button:\n`{escape_md(update.callback_query.data)}` \\({escape_md(translated_action)}\\)"
+        log_msg = f"{user_info} clicked button:\n<code>{html_escape(update.callback_query.data)}</code> ({html_escape(translated_action)})"
         action_str = f"Click: {translated_action}"
 
     if action_str:
@@ -131,10 +132,10 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         
         msg_text = (
-            "⚠️ *Access Denied!*\n\n"
+            "⚠️ <b>Access Denied!</b>\n\n"
             "You must join our main channel to continue using the bot.\n\n"
             f"👉 Please join here: {channel_display}\n"
-            "After joining, click **Check Join Status** below!"
+            "After joining, click <b>Check Join Status</b> below!"
         )
         
         if update.callback_query:
@@ -143,7 +144,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.callback_query.edit_message_text(
                     text=msg_text,
                     reply_markup=kb,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
                 try:
@@ -151,20 +152,20 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         chat_id=user.id,
                         text=msg_text,
                         reply_markup=kb,
-                        parse_mode="Markdown"
+                        parse_mode="HTML"
                     )
                 except Exception:
-                    pass
+                    logger.exception('Failed to send channel join message')
         else:
             try:
                 await context.bot.send_message(
                     chat_id=user.id,
                     text=msg_text,
                     reply_markup=kb,
-                    parse_mode="Markdown"
+                    parse_mode="HTML"
                 )
             except Exception:
-                pass
+                logger.exception('Failed to send channel join message')
             
         raise ApplicationHandlerStop()
 
@@ -178,8 +179,8 @@ async def cb_check_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     joined = await is_user_member_of_channel(context.bot, user_id, force_check=True)
     if joined:
         await update.callback_query.edit_message_text(
-            "✅ *Thank you for joining!*\n\nUse /start to open the main menu.",
-            parse_mode="Markdown"
+            "✅ <b>Thank you for joining!</b>\n\nUse /start to open the main menu.",
+            parse_mode="HTML"
         )
     else:
         await update.callback_query.answer("❌ You haven't joined yet. Please join the channel first!", show_alert=True)

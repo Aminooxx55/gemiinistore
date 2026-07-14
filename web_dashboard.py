@@ -1,18 +1,25 @@
 # -*- coding: utf-8 -*-
 """Advanced Web Admin Dashboard for Telegram Shop Bot."""
 import os
+import csv
+import io
 import sqlite3
 import logging
 import urllib.request
 import urllib.parse
 import json
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template_string, Response, session, redirect, url_for
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("web_dashboard")
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "super-secret-admin-key-123")
+
+ADMIN_USERNAME = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASS", "admin123")
+
 DB_PATH = "shop.db"
 ENV_PATH = ".env"
 
@@ -73,6 +80,68 @@ def update_env_var(key: str, value: str):
 
     with open(ENV_PATH, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
+
+
+@app.before_request
+def check_auth():
+    if request.endpoint in ('login', 'logout', 'static'):
+        return
+    if not session.get('logged_in'):
+        if request.path.startswith('/api/'):
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        return redirect(url_for('login', next=request.url))
+
+
+LOGIN_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center font-sans antialiased" style="background-color: #080c14; background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 40%), radial-gradient(at 50% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.12) 0px, transparent 40%);">
+    <div class="p-8 rounded-2xl shadow-2xl w-96 border border-gray-800" style="background: rgba(13, 20, 35, 0.7); backdrop-filter: blur(16px);">
+        <div class="flex justify-center mb-6">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+        </div>
+        <h2 class="text-2xl font-bold mb-6 text-center text-white">Admin Login</h2>
+        {% if error %}<p class="text-rose-400 text-sm mb-4 text-center font-semibold bg-rose-500/10 py-2 rounded-lg border border-rose-500/20">{{ error }}</p>{% endif %}
+        <form method="POST" action="/login" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Username</label>
+                <input type="text" name="username" required class="w-full bg-gray-900/80 border border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition text-white placeholder-gray-600" placeholder="admin">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wider">Password</label>
+                <input type="password" name="password" required class="w-full bg-gray-900/80 border border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-500 transition text-white placeholder-gray-600" placeholder="••••••••">
+            </div>
+            <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 py-3 rounded-xl text-white font-bold transition shadow-lg shadow-indigo-500/25 mt-2">Access Dashboard</button>
+        </form>
+    </div>
+</body>
+</html>
+"""
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        if request.form.get("username") == ADMIN_USERNAME and request.form.get("password") == ADMIN_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            error = "Invalid Credentials"
+    return render_template_string(LOGIN_TEMPLATE, error=error)
+
+@app.route("/logout")
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
 
 
 HTML_TEMPLATE = """
@@ -164,6 +233,9 @@ HTML_TEMPLATE = """
                     <button onclick="switchTab('products')" id="tab-products-btn" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
                         <i class="fa-solid fa-cubes w-5"></i><span>Products Catalog</span>
                     </button>
+                    <button onclick="switchTab('inventory')" id="tab-inventory-btn" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
+                        <i class="fa-solid fa-layer-group w-5"></i><span>Stock & Inventory</span>
+                    </button>
                     <button onclick="switchTab('users')" id="tab-users-btn" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition">
                         <i class="fa-solid fa-users w-5"></i><span>Users Database</span>
                     </button>
@@ -212,6 +284,9 @@ HTML_TEMPLATE = """
                     </button>
                     <div class="h-6 w-px bg-gray-800"></div>
                     <span class="text-xs text-gray-400 font-medium"><i class="fa-solid fa-user-shield mr-1.5 text-indigo-500"></i>Root Administrator</span>
+                    <a href="/logout" class="ml-4 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold border border-rose-500/20 transition flex items-center">
+                        <i class="fa-solid fa-sign-out-alt mr-1.5"></i>Logout
+                    </a>
                 </div>
             </header>
 
@@ -221,7 +296,7 @@ HTML_TEMPLATE = """
                 <!-- 🌐 TAB 1: OVERVIEW -->
                 <div id="tab-overview" class="space-y-6">
                     <!-- KPI statistics widgets -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <div class="glass p-6 rounded-2xl flex items-center justify-between">
                             <div class="space-y-1">
                                 <p class="text-xs font-semibold uppercase text-gray-500 tracking-wider">Total Sales Income</p>
@@ -229,6 +304,15 @@ HTML_TEMPLATE = """
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
                                 <i class="fa-solid fa-wallet text-lg"></i>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-2xl flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-xs font-semibold uppercase text-gray-500 tracking-wider">Today's Sales</p>
+                                <p class="text-3xl font-bold tracking-tight text-white" id="stat-today-sales">$0.00</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+                                <i class="fa-solid fa-calendar-day text-lg"></i>
                             </div>
                         </div>
                         <div class="glass p-6 rounded-2xl flex items-center justify-between">
@@ -251,11 +335,20 @@ HTML_TEMPLATE = """
                         </div>
                         <div class="glass p-6 rounded-2xl flex items-center justify-between">
                             <div class="space-y-1">
-                                <p class="text-xs font-semibold uppercase text-gray-500 tracking-wider">Pending Deposits</p>
-                                <p class="text-3xl font-bold tracking-tight text-amber-400" id="stat-pending">0</p>
+                                <p class="text-xs font-semibold uppercase text-gray-500 tracking-wider">Total Stock Units</p>
+                                <p class="text-3xl font-bold tracking-tight text-indigo-400" id="stat-total-stock">0</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+                                <i class="fa-solid fa-layer-group text-lg"></i>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-2xl flex items-center justify-between">
+                            <div class="space-y-1">
+                                <p class="text-xs font-semibold uppercase text-gray-500 tracking-wider">Low Stock Alerts</p>
+                                <p class="text-3xl font-bold tracking-tight text-amber-400" id="stat-low-stock">0</p>
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                                <i class="fa-solid fa-circle-notch text-lg animate-spin"></i>
+                                <i class="fa-solid fa-triangle-exclamation text-lg"></i>
                             </div>
                         </div>
                     </div>
@@ -313,9 +406,59 @@ HTML_TEMPLATE = """
                     </div>
                 </div>
 
+                <!-- 📦 TAB: INVENTORY -->
+                <div id="tab-inventory" class="space-y-6 hidden">
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-400">Manage digital product stocks, add single lines, or bulk upload CSV/TXT.</p>
+                        <div class="flex space-x-2">
+                            <button onclick="openUploadStockModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-emerald-600/20 transition flex items-center space-x-1.5">
+                                <i class="fa-solid fa-file-arrow-up text-xs"></i><span>Bulk Upload TXT/CSV</span>
+                            </button>
+                            <button onclick="openAddStockModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-600/20 transition flex items-center space-x-1.5">
+                                <i class="fa-solid fa-plus text-xs"></i><span>Add Single Stock</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter by Product -->
+                    <div class="glass p-4 rounded-xl flex items-center space-x-4">
+                        <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">Filter by Product:</label>
+                        <select id="inventory-filter-product" onchange="fetchInventory()" class="bg-gray-900/80 border border-gray-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 w-64">
+                            <option value="">All Products</option>
+                            <!-- Loaded via JS -->
+                        </select>
+                    </div>
+
+                    <div class="glass rounded-2xl overflow-hidden">
+                        <div class="overflow-x-auto custom-scrollbar">
+                            <table class="w-full text-left border-collapse text-sm">
+                                <thead>
+                                    <tr class="border-b border-gray-800 bg-gray-900/50 text-gray-400 uppercase font-semibold text-[11px] tracking-wider">
+                                        <th class="p-4">ID</th>
+                                        <th class="p-4">Product Name</th>
+                                        <th class="p-4">Stock Data (Credentials/Link)</th>
+                                        <th class="p-4">Status</th>
+                                        <th class="p-4">Added Date</th>
+                                        <th class="p-4">Sold Date</th>
+                                        <th class="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-table-body" class="divide-y divide-gray-800/50">
+                                    <!-- Loaded via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 👥 TAB 3: USERS DATABASE -->
                 <div id="tab-users" class="space-y-6 hidden">
-                    <p class="text-sm text-gray-400">Manage client accounts, adjust balances, and block/unblock users.</p>
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-400">Manage client accounts, adjust balances, and block/unblock users.</p>
+                        <a href="/api/export/users" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 no-underline">
+                            <i class="fas fa-download"></i> Export CSV
+                        </a>
+                    </div>
                     
                     <div class="glass rounded-2xl overflow-hidden">
                         <div class="overflow-x-auto custom-scrollbar">
@@ -342,7 +485,12 @@ HTML_TEMPLATE = """
 
                 <!-- 📋 TAB 4: ORDERS LIST -->
                 <div id="tab-orders" class="space-y-6 hidden">
-                    <p class="text-sm text-gray-400">View pending, completed, or failed shop orders and confirm manual deliveries.</p>
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-400">View pending, completed, or failed shop orders and confirm manual deliveries.</p>
+                        <a href="/api/export/orders" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition flex items-center gap-2 no-underline">
+                            <i class="fas fa-download"></i> Export CSV
+                        </a>
+                    </div>
                     
                     <div class="glass rounded-2xl overflow-hidden">
                         <div class="overflow-x-auto custom-scrollbar">
@@ -561,6 +709,56 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- ── MODAL: ADD SINGLE STOCK ── -->
+    <div id="addStockModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="glass max-w-md w-full p-6 rounded-2xl space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Add Single Stock Item</h3>
+                <button onclick="closeAddStockModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400 font-semibold uppercase">Product</label>
+                    <select id="add-stock-product" class="w-full bg-gray-900/85 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400 font-semibold uppercase">Stock Data (Credentials/Link)</label>
+                    <textarea id="add-stock-data" rows="4" class="w-full bg-gray-900/85 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="user:pass OR https://link..."></textarea>
+                </div>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeAddStockModal()" class="w-1/2 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition text-sm font-semibold">Cancel</button>
+                <button onclick="submitAddStock()" class="w-1/2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition text-sm font-semibold">Add Stock</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL: BULK UPLOAD STOCK ── -->
+    <div id="uploadStockModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center hidden">
+        <div class="glass max-w-md w-full p-6 rounded-2xl space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white">Bulk Upload Stock (TXT/CSV)</h3>
+                <button onclick="closeUploadStockModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-times text-lg"></i></button>
+            </div>
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400 font-semibold uppercase">Product</label>
+                    <select id="upload-stock-product" class="w-full bg-gray-900/85 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs text-gray-400 font-semibold uppercase">File (One item per line)</label>
+                    <input type="file" id="upload-stock-file" accept=".txt,.csv" class="w-full bg-gray-900/85 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-400 focus:outline-none focus:border-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/10 file:text-indigo-400 hover:file:bg-indigo-500/20">
+                </div>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeUploadStockModal()" class="w-1/2 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition text-sm font-semibold">Cancel</button>
+                <button onclick="submitUploadStock()" class="w-1/2 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition text-sm font-semibold">Upload Stock</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         let chartInstance = null;
@@ -568,7 +766,7 @@ HTML_TEMPLATE = """
 
         // Tab Switching
         function switchTab(tabId) {
-            const tabs = ['overview', 'products', 'users', 'orders', 'reviews', 'coupons', 'broadcast', 'settings'];
+            const tabs = ['overview', 'products', 'inventory', 'users', 'orders', 'reviews', 'coupons', 'broadcast', 'settings'];
             tabs.forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 const btn = document.getElementById(`tab-${t}-btn`);
@@ -585,6 +783,7 @@ HTML_TEMPLATE = """
             const pageTitleMap = {
                 'overview': 'Overview Dashboard',
                 'products': 'Product Catalog',
+                'inventory': 'Stock & Inventory',
                 'users': 'Users Database',
                 'orders': 'Orders List',
                 'reviews': 'User Reviews',
@@ -596,6 +795,10 @@ HTML_TEMPLATE = """
 
             // Trigger specific tab fetches
             if (tabId === 'products') fetchProducts();
+            else if (tabId === 'inventory') {
+                populateInventoryProducts();
+                fetchInventory();
+            }
             else if (tabId === 'users') fetchUsers();
             else if (tabId === 'orders') fetchOrders();
             else if (tabId === 'reviews') fetchReviews();
@@ -612,7 +815,10 @@ HTML_TEMPLATE = """
                 document.getElementById('stat-users').innerText = data.total_users;
                 document.getElementById('stat-revenue').innerText = `$${data.total_revenue.toFixed(2)}`;
                 document.getElementById('stat-orders').innerText = data.total_orders;
-                document.getElementById('stat-pending').innerText = data.pending_topups;
+                if (document.getElementById('stat-pending')) document.getElementById('stat-pending').innerText = data.pending_topups;
+                if (document.getElementById('stat-today-sales')) document.getElementById('stat-today-sales').innerText = `$${data.today_sales.toFixed(2)}`;
+                if (document.getElementById('stat-total-stock')) document.getElementById('stat-total-stock').innerText = data.total_stock;
+                if (document.getElementById('stat-low-stock')) document.getElementById('stat-low-stock').innerText = data.low_stock_alerts;
 
                 updateChart(data.chart_data);
             } catch (err) {
@@ -800,6 +1006,139 @@ HTML_TEMPLATE = """
                     body: JSON.stringify({ id })
                 });
                 fetchProducts();
+            }
+        }
+
+        // Inventory Tab
+        async function fetchInventory() {
+            try {
+                const filterProdId = document.getElementById('inventory-filter-product').value;
+                const url = filterProdId ? `/api/inventory?product_id=${filterProdId}` : '/api/inventory';
+                const res = await fetch(url);
+                const items = await res.json();
+                const tbody = document.getElementById('inventory-table-body');
+                
+                tbody.innerHTML = items.map(i => {
+                    const statusBadge = i.is_sold 
+                        ? `<span class="px-2.5 py-0.5 rounded-full text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20">Sold</span>`
+                        : `<span class="px-2.5 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Available</span>`;
+                    
+                    return `
+                        <tr class="hover:bg-gray-900/10 transition-colors">
+                            <td class="p-4 font-mono text-gray-500">#${i.id}</td>
+                            <td class="p-4 font-bold text-white">${i.product_name}</td>
+                            <td class="p-4 text-gray-300 font-mono text-xs max-w-xs truncate">${i.data}</td>
+                            <td class="p-4">${statusBadge}</td>
+                            <td class="p-4 text-xs text-gray-500">${i.created_at || '-'}</td>
+                            <td class="p-4 text-xs text-gray-500">${i.sold_at || '-'}</td>
+                            <td class="p-4 text-right space-x-2">
+                                ${!i.is_sold ? `<button onclick="deleteInventory(${i.id})" class="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function populateInventoryProducts() {
+            try {
+                const res = await fetch('/api/products');
+                const products = await res.json();
+                const options = products.map(p => `<option value="${p.id}">${p.emoji} ${p.name}</option>`).join('');
+                document.getElementById('inventory-filter-product').innerHTML = '<option value="">All Products</option>' + options;
+                document.getElementById('add-stock-product').innerHTML = options;
+                document.getElementById('upload-stock-product').innerHTML = options;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function openAddStockModal() {
+            document.getElementById('add-stock-data').value = '';
+            document.getElementById('addStockModal').classList.remove('hidden');
+        }
+
+        function closeAddStockModal() {
+            document.getElementById('addStockModal').classList.add('hidden');
+        }
+
+        async function submitAddStock() {
+            const product_id = document.getElementById('add-stock-product').value;
+            const data = document.getElementById('add-stock-data').value;
+            
+            if (!product_id || !data) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            await fetch('/api/inventory/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ product_id, data })
+            });
+
+            closeAddStockModal();
+            fetchInventory();
+        }
+
+        function openUploadStockModal() {
+            document.getElementById('upload-stock-file').value = '';
+            document.getElementById('uploadStockModal').classList.remove('hidden');
+        }
+
+        function closeUploadStockModal() {
+            document.getElementById('uploadStockModal').classList.add('hidden');
+        }
+
+        async function submitUploadStock() {
+            const product_id = document.getElementById('upload-stock-product').value;
+            const fileInput = document.getElementById('upload-stock-file');
+            
+            if (!product_id || fileInput.files.length === 0) {
+                alert("Please select a product and a file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('product_id', product_id);
+            formData.append('file', fileInput.files[0]);
+
+            const btn = document.querySelector('#uploadStockModal button.bg-emerald-600');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/inventory/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(`Successfully uploaded ${data.added} items.`);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            } catch(e) {
+                alert("Upload failed.");
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            closeUploadStockModal();
+            fetchInventory();
+        }
+
+        async function deleteInventory(id) {
+            if (confirm("Delete this stock item permanently?")) {
+                await fetch('/api/inventory/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id })
+                });
+                fetchInventory();
             }
         }
 
@@ -1075,7 +1414,7 @@ HTML_TEMPLATE = """
                     let desc = '';
                     if (key === 'CRYPTOMUS_MERCHANT_UUID') desc = 'Cryptomus Merchant ID for receiving payments';
                     else if (key === 'CRYPTOMUS_API_KEY') desc = 'Cryptomus Payment API Key';
-                    else if (key === 'USDT_TRC20_ADDRESS') desc = 'Wallet Address for manual USDT TRC20 payments';
+                    else if (key === 'USDT_POL_ADDRESS') desc = 'Wallet Address for manual USDT POL payments';
                     else if (key === 'USDT_BEP20_ADDRESS') desc = 'Wallet Address for manual USDT BEP20 payments';
                     else if (key === 'BINANCE_PAY_ID') desc = 'Binance Pay merchant / ID for payments';
                     else if (key === 'REFERRAL_REWARD') desc = 'Balance reward given to referrers when their friend buys';
@@ -1154,9 +1493,24 @@ def api_stats():
             "SELECT SUM(total_price) FROM orders WHERE status='paid' OR status='delivered'"
         ).fetchone()[0] or 0.0
 
+        # Today's Sales
+        today_sales = conn.execute(
+            "SELECT SUM(total_price) FROM orders WHERE (status='paid' OR status='delivered') AND date(created_at) = date('now')"
+        ).fetchone()[0] or 0.0
+
         # Total orders
         total_orders = conn.execute(
             "SELECT COUNT(*) FROM orders WHERE status='paid' OR status='delivered'"
+        ).fetchone()[0]
+
+        # Total Stock Remaining
+        total_stock = conn.execute(
+            "SELECT SUM(stock) FROM products WHERE stock != -1"
+        ).fetchone()[0] or 0
+
+        # Low Stock Alerts
+        low_stock_alerts = conn.execute(
+            "SELECT COUNT(*) FROM products WHERE stock >= 0 AND stock < 5"
         ).fetchone()[0]
 
         # Pending topups
@@ -1187,7 +1541,10 @@ def api_stats():
         return jsonify({
             "total_users": total_users,
             "total_revenue": total_revenue,
+            "today_sales": today_sales,
             "total_orders": total_orders,
+            "total_stock": total_stock,
+            "low_stock_alerts": low_stock_alerts,
             "pending_topups": pending_topups,
             "chart_data": {
                 "dates": dates,
@@ -1352,6 +1709,136 @@ def product_delete():
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error deleting product: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+# Inventory Actions
+@app.route("/api/inventory")
+def api_inventory():
+    product_id = request.args.get("product_id", type=int)
+    conn = get_db_connection()
+    try:
+        query = """SELECT s.*, p.name as product_name 
+                   FROM product_stock s
+                   JOIN products p ON s.product_id = p.id"""
+        params = ()
+        if product_id:
+            query += " WHERE s.product_id = ?"
+            params = (product_id,)
+        query += " ORDER BY s.id DESC LIMIT 500"
+        
+        rows = conn.execute(query, params).fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        conn.close()
+
+
+@app.route("/api/inventory/add", methods=["POST"])
+def inventory_add():
+    data = request.json
+    product_id = int(data["product_id"])
+    stock_data = data["data"].strip()
+
+    if not stock_data:
+        return jsonify({"status": "error", "message": "Stock data cannot be empty"}), 400
+
+    conn = get_db_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "INSERT INTO product_stock (product_id, data) VALUES (?, ?)",
+            (product_id, stock_data)
+        )
+        # Update product stock count if not unlimited
+        cur = conn.execute("SELECT stock FROM products WHERE id=?", (product_id,))
+        p = cur.fetchone()
+        if p and p["stock"] != -1:
+            cur_count = conn.execute("SELECT COUNT(*) FROM product_stock WHERE product_id=? AND is_sold=0", (product_id,)).fetchone()[0]
+            conn.execute("UPDATE products SET stock=? WHERE id=?", (cur_count, product_id))
+        
+        conn.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error adding stock: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/inventory/delete", methods=["POST"])
+def inventory_delete():
+    data = request.json
+    s_id = int(data["id"])
+
+    conn = get_db_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        
+        # Get product_id before deleting
+        cur = conn.execute("SELECT product_id FROM product_stock WHERE id=?", (s_id,))
+        s = cur.fetchone()
+        if not s:
+            return jsonify({"status": "error", "message": "Stock not found"}), 404
+        product_id = s["product_id"]
+
+        conn.execute("DELETE FROM product_stock WHERE id=?", (s_id,))
+        
+        # Update product stock count if not unlimited
+        cur_prod = conn.execute("SELECT stock FROM products WHERE id=?", (product_id,))
+        p = cur_prod.fetchone()
+        if p and p["stock"] != -1:
+            cur_count = conn.execute("SELECT COUNT(*) FROM product_stock WHERE product_id=? AND is_sold=0", (product_id,)).fetchone()[0]
+            conn.execute("UPDATE products SET stock=? WHERE id=?", (cur_count, product_id))
+
+        conn.commit()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error deleting stock: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/inventory/upload", methods=["POST"])
+def inventory_upload():
+    product_id = request.form.get("product_id", type=int)
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No file part"}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No selected file"}), 400
+        
+    if not product_id:
+        return jsonify({"status": "error", "message": "Product ID required"}), 400
+
+    conn = get_db_connection()
+    try:
+        content = file.read().decode('utf-8').splitlines()
+        valid_lines = [line.strip() for line in content if line.strip()]
+        
+        if not valid_lines:
+            return jsonify({"status": "error", "message": "File is empty or invalid"}), 400
+
+        conn.execute("BEGIN IMMEDIATE")
+        
+        for line in valid_lines:
+            conn.execute("INSERT INTO product_stock (product_id, data) VALUES (?, ?)", (product_id, line))
+            
+        # Update product stock count if not unlimited
+        cur = conn.execute("SELECT stock FROM products WHERE id=?", (product_id,))
+        p = cur.fetchone()
+        if p and p["stock"] != -1:
+            cur_count = conn.execute("SELECT COUNT(*) FROM product_stock WHERE product_id=? AND is_sold=0", (product_id,)).fetchone()[0]
+            conn.execute("UPDATE products SET stock=? WHERE id=?", (cur_count, product_id))
+            
+        conn.commit()
+        return jsonify({"status": "success", "added": len(valid_lines)})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error bulk uploading stock: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         conn.close()
@@ -1557,6 +2044,87 @@ def api_settings_save():
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/export/orders")
+def export_orders_csv():
+    """Export all orders as a downloadable CSV file."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            """SELECT o.id, u.first_name, u.username, p.name as product_name,
+                      o.quantity, o.unit_price, o.total_price,
+                      o.payment_method, o.status, o.created_at
+               FROM orders o
+               JOIN products p ON o.product_id = p.id
+               JOIN users u ON o.user_id = u.telegram_id
+               ORDER BY o.created_at DESC"""
+        ).fetchall()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Order ID', 'User', 'Product', 'Quantity', 'Unit Price', 'Total', 'Payment Method', 'Status', 'Date'])
+        for r in rows:
+            user_display = r['first_name']
+            if r['username']:
+                user_display += f" (@{r['username']})"
+            writer.writerow([
+                r['id'], user_display, r['product_name'],
+                r['quantity'], f"${r['unit_price']:.2f}" if r['unit_price'] else '$0.00',
+                f"${r['total_price']:.2f}", r['payment_method'],
+                r['status'], r['created_at']
+            ])
+
+        csv_data = output.getvalue()
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=orders_export.csv'}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting orders CSV: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
+
+
+@app.route("/api/export/users")
+def export_users_csv():
+    """Export all users as a downloadable CSV file."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            """SELECT u.telegram_id, u.first_name, u.username, u.balance,
+                      u.total_spent, u.membership, u.created_at, u.is_banned,
+                      (SELECT COUNT(*) FROM orders WHERE user_id = u.telegram_id) as orders_count
+               FROM users u
+               ORDER BY u.total_spent DESC"""
+        ).fetchall()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Telegram ID', 'Name', 'Username', 'Balance', 'Total Spent', 'Membership', 'Orders Count', 'Joined Date', 'Status'])
+        for r in rows:
+            writer.writerow([
+                r['telegram_id'], r['first_name'],
+                f"@{r['username']}" if r['username'] else '',
+                f"${r['balance']:.2f}", f"${r['total_spent']:.2f}",
+                r['membership'], r['orders_count'],
+                r['created_at'],
+                'Banned' if r['is_banned'] else 'Active'
+            ])
+
+        csv_data = output.getvalue()
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=users_export.csv'}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting users CSV: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

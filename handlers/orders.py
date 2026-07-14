@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, CallbackQueryHandler, MessageHandler, filters
 from database.db import get_db
 from utils.keyboards import orders_kb, order_detail_kb, back_home_kb
-from utils.messages import order_status_msg, escape_md
+from utils.messages import order_status_msg
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 
@@ -41,8 +41,8 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.delete()
         await context.bot.send_message(
             chat_id=update.effective_user.id,
-            text="👀 *My Orders*\n\nYou haven't placed any orders yet\\.\n\nGo to the Shop to get started\\!",
-            parse_mode="MarkdownV2",
+            text="👀 <b>My Orders</b>\n\nYou haven't placed any orders yet.\n\nGo to the Shop to get started!",
+            parse_mode="HTML",
             reply_markup=back_home_kb(),
         )
         return
@@ -59,8 +59,8 @@ async def cb_orders_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.delete()
     await context.bot.send_message(
         chat_id=update.effective_user.id,
-        text="👀 *My Orders* \\(last 20\\)\n\nClick an order to see details:",
-        parse_mode="MarkdownV2",
+        text="👀 <b>My Orders</b> (last 20)\n\nClick an order to see details:",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(rows),
     )
 
@@ -88,7 +88,7 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = order_status_msg(order, order["product_name"])
 
     if order.get("delivery_info"):
-        text += f"\n📬 *Delivery Info:*\n`{escape_md(order['delivery_info'])}`"
+        text += f"\n📬 <b>Delivery Info:</b>\n<code>{order['delivery_info']}</code>"
 
     # If delivered, show a prompt to rate if not already rated
     async with get_db() as db:
@@ -106,7 +106,7 @@ async def cb_order_detail(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(
         chat_id=update.effective_user.id,
         text=text,
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=keyboard,
     )
 
@@ -116,11 +116,15 @@ async def cb_show_rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     order_id = int(update.callback_query.data.split("_")[2])
     message = update.callback_query.message
 
-    await message.delete()
+    try:
+        await message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+        
     await context.bot.send_message(
         chat_id=update.effective_user.id,
-        text="⭐ *Please rate your purchase experience:*\n\nYour feedback helps us provide better service\\!",
-        parse_mode="MarkdownV2",
+        text="⭐ <b>Please rate your purchase experience:</b>\n\nYour feedback helps us provide better service!",
+        parse_mode="HTML",
         reply_markup=rating_kb(order_id),
     )
 
@@ -153,13 +157,17 @@ async def cb_rate_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["waiting_for_review_comment"] = order_id
 
     stars = "⭐" * rating
-    await message.delete()
+    try:
+        await message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+        
     await context.bot.send_message(
         chat_id=update.effective_user.id,
-        text=f"❤️ *Thank you for your rating of {stars}\\!*\n\n"
+        text=f"❤️ <b>Thank you for your rating of {stars}!</b>\n\n"
              f"✍️ Would you like to leave a feedback comment?\n"
-             f"Please type it below and send it, or click **Skip**:",
-        parse_mode="MarkdownV2",
+             f"Please type it below and send it, or click <b>Skip</b>:",
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("⏭️ Skip Comment", callback_data=f"skip_comment_{order_id}")]
         ]),
@@ -174,8 +182,8 @@ async def cb_skip_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await message.delete()
     await context.bot.send_message(
         chat_id=update.effective_user.id,
-        text="✅ *Feedback saved\\!*\n\nThank you for your review\\! 🥰",
-        parse_mode="MarkdownV2",
+        text="✅ <b>Feedback saved!</b>\n\nThank you for your review! 🥰",
+        parse_mode="HTML",
         reply_markup=back_home_kb(),
     )
 
@@ -202,8 +210,8 @@ async def recv_review_comment(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     context.user_data.pop("waiting_for_review_comment", None)
     await update.message.reply_text(
-        "✅ *Comment saved\\!*\n\nThank you for your valuable feedback\\! 🥰",
-        parse_mode="MarkdownV2",
+        "✅ <b>Comment saved!</b>\n\nThank you for your valuable feedback! 🥰",
+        parse_mode="HTML",
         reply_markup=back_home_kb(),
     )
 

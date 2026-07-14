@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """In-Bot Live Support Ticket System."""
+import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ContextTypes, CommandHandler, CallbackQueryHandler,
@@ -12,6 +13,12 @@ from config import ADMIN_ID
 
 # Conversation states
 SUPPORT_USER_MSG, ADMIN_SUPPORT_REPLY = range(2)
+
+
+async def cancel_support_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel any active support conversation."""
+    await update.message.reply_text("❌ Operation cancelled.", reply_markup=back_home_kb())
+    return ConversationHandler.END
 
 
 async def cmd_support_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,6 +95,7 @@ async def recv_user_support_msg(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=kb
         )
     except Exception:
+        logging.exception("Failed to send support ticket #%s notification to admin", ticket_id)
         pass
 
     # 3. Notify user
@@ -189,6 +197,7 @@ async def cb_admin_close_ticket(update: Update, context: ContextTypes.DEFAULT_TY
                 parse_mode="HTML"
             )
         except Exception:
+            logging.exception("Failed to notify user %s about ticket #%s closure", user_id, ticket_id)
             pass
 
 
@@ -284,7 +293,9 @@ def register_support_handlers(app):
         states={
             SUPPORT_USER_MSG: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_user_support_msg)]
         },
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_support_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Admin reply conversation
@@ -293,7 +304,9 @@ def register_support_handlers(app):
         states={
             ADMIN_SUPPORT_REPLY: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_admin_support_reply)]
         },
-        fallbacks=[], per_chat=True, per_user=True,
+        fallbacks=[CommandHandler('cancel', cancel_support_conversation)],
+        per_chat=True, per_user=True,
+        conversation_timeout=300,
     ))
 
     # Admin action callbacks

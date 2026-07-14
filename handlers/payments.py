@@ -1,5 +1,6 @@
 """Payment handler — wallet pay, USDT TRC20/BEP20, Binance Pay."""
 import io
+import logging
 from telegram import Update, InputFile
 from telegram.ext import ContextTypes, CallbackQueryHandler
 from database.db import get_db
@@ -9,11 +10,15 @@ from utils.helpers import (
     get_product_unit_price,
 )
 from utils.keyboards import back_home_kb, confirm_purchase_kb
-from utils.messages import payment_address_msg, escape_md
+from utils.messages import payment_address_msg
 from config import (
-    USDT_TRC20_ADDRESS, USDT_BEP20_ADDRESS,
+    USDT_POL_ADDRESS, USDT_BEP20_ADDRESS,
     BINANCE_PAY_ID, REFERRAL_REWARD,
+    OrderStatus, SUPPORT_USERNAME,
 )
+from html import escape as html_escape
+
+logger = logging.getLogger(__name__)
 
 
 async def _finalize_order(db, user_id: int, product_id: int, qty: int,
@@ -27,7 +32,7 @@ async def _finalize_order(db, user_id: int, product_id: int, qty: int,
             payment_method, status, coupon_id, discount_amount)
            VALUES (?,?,?,?,?,?,?,?,?)""",
         (user_id, product_id, qty, unit_price, total,
-         payment_method, "paid", coupon_id, discount)
+         payment_method, OrderStatus.PAID, coupon_id, discount)
     )
     order_id = cur.lastrowid
 
@@ -78,16 +83,15 @@ async def _give_referral_reward(user_id: int, context: ContextTypes.DEFAULT_TYPE
                 ref["referrer_id"], REFERRAL_REWARD, "referral_reward",
                 f"Referral reward for user {user_id}"
             )
-            ref_reward_str = escape_md(f"${REFERRAL_REWARD:.2f}")
             try:
                 await context.bot.send_message(
                     chat_id=ref["referrer_id"],
-                    text=f"🎉 *Referral Reward\\!*\n\nYour friend made their first purchase\\!\n"
-                         f"You earned {ref_reward_str} added to your wallet\\! 🎁",
-                    parse_mode="MarkdownV2"
+                    text=f"🎉 <b>Referral Reward!</b>\n\nYour friend made their first purchase!\n"
+                         f"You earned ${REFERRAL_REWARD:.2f} added to your wallet! 🎁",
+                    parse_mode="HTML"
                 )
             except Exception:
-                pass
+                logger.exception('Failed to send referral reward notification')
 
 
 # ── Wallet Payment ────────────────────────────────────────────────────────────
@@ -139,26 +143,34 @@ async def cb_pay_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _give_referral_reward(update.effective_user.id, context)
 
     # Notify admin
-    total_str = escape_md(f"${total:.2f}")
+    total_str = f"${total:.2f}"
     await notify_admin(
         context,
-        f"🛒 *New Order \\#{order_id}*\n"
-        f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
-        f"Product: {escape_md(p['name'])} x{qty}\n"
+        f"🛒 <b>New Order #{order_id}</b>\n"
+        f"User: {html_escape(user['first_name'])} (<code>{user['telegram_id']}</code>)\n"
+        f"Product: {html_escape(p['name'])} x{qty}\n"
         f"Total: {total_str}\n"
         f"Payment: Wallet ✅"
     )
 
     context.user_data.pop("pending", None)
-    await update.callback_query.edit_message_text(
-        f"✅ *Order Placed Successfully\\!*\n\n"
-        f"📦 *{escape_md(p['name'])}* x{qty}\n"
-        f"💰 *Paid:* {total_str} from wallet\n"
-        f"🔖 *Order ID:* \\#{order_id}\n\n"
-        f"⚡ *Autopilot Delivery:* If this product has instant stock, it has been delivered in the next message\\! Otherwise, the admin will deliver it shortly\\.\n\n"
-        f"Use 👀 Orders to track status\\.",
-        parse_mode="MarkdownV2",
-        reply_markup=back_home_kb(),
+    msg_text = (
+        f"✅ <b>Order Placed Successfully!</b>\n\n"
+        f"📦 <b>{p['name']}</b> x{qty}\n"
+        f"💰 <b>Paid:</b> ${total:.2f} from wallet\n"
+        f"🔖 <b>Order ID:</b> #{order_id}\n\n"
+        f"⚡ <b>Autopilot Delivery:</b> If this product has instant stock, it has been delivered in the next message! Otherwise, the admin will deliver it shortly.\n\n"
+        f"Use 👀 Orders to track status."
+    )
+    try:
+        await update.callback_query.message.delete()
+    except Exception:
+        pass
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text=msg_text,
+        parse_mode="HTML",
+        reply_markup=back_home_kb()
     )
 
 
@@ -196,7 +208,7 @@ async def _send_crypto_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
                 payment_method, status, coupon_id, discount_amount)
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (update.effective_user.id, prod_id, qty, unit_price, total,
-             method.upper(), "pending", coupon_id, coupon_discount)
+             method.upper(), OrderStatus.PENDING, coupon_id, coupon_discount)
         )
         order_id = cur.lastrowid
         if coupon_id:
@@ -219,22 +231,22 @@ async def _send_crypto_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.send_photo(
         chat_id=update.effective_user.id,
         photo=InputFile(io.BytesIO(qr_bytes), filename="qr.png"),
-        caption=msg + f"\n\n🔖 *Order ID:* \\#{order_id}",
-        parse_mode="MarkdownV2",
+        caption=msg + f"\n\n🔖 <b>Order ID:</b> #{order_id}",
+        parse_mode="HTML",
         reply_markup=_sent_payment_kb(order_id),
     )
-
+ 
     # Notify admin
     user = await get_user(update.effective_user.id)
-    total_str = escape_md(f"${total:.2f}")
+    total_str = f"${total:.2f}"
     await notify_admin(
         context,
-        f"💳 *Payment Pending \\#{order_id}*\n"
-        f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
-        f"Product: {escape_md(p['name'])} x{qty}\n"
+        f"💳 <b>Payment Pending #{order_id}</b>\n"
+        f"User: {html_escape(user['first_name'])} (<code>{user['telegram_id']}</code>)\n"
+        f"Product: {html_escape(p['name'])} x{qty}\n"
         f"Total: {total_str}\n"
         f"Method: {method.upper()}\n"
-        f"Address: `{escape_md(address)}`"
+        f"Address: <code>{html_escape(address)}</code>"
     )
     context.user_data.pop("pending", None)
 
@@ -243,13 +255,13 @@ def _sent_payment_kb(order_id: int):
     from telegram import InlineKeyboardMarkup, InlineKeyboardButton
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ I've Sent Payment", callback_data=f"payment_sent_{order_id}")],
-        [InlineKeyboardButton("🆘 Send Screenshot to @lovable47", url="https://t.me/lovable47")],
+        [InlineKeyboardButton(f"🆘 Send Screenshot to {SUPPORT_USERNAME}", url=f"https://t.me/{SUPPORT_USERNAME.lstrip('@')}")],
         [InlineKeyboardButton("🏠 Back to Home",      callback_data="main_menu")],
     ])
 
 
-async def cb_pay_trc20(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await _send_crypto_invoice(update, context, "trc20", USDT_TRC20_ADDRESS)
+async def cb_pay_pol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _send_crypto_invoice(update, context, "pol", USDT_POL_ADDRESS)
 
 
 async def cb_pay_bep20(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,35 +288,39 @@ async def cb_payment_sent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from telegram import InlineKeyboardMarkup, InlineKeyboardButton
     from telegram.ext import ConversationHandler
 
-    if order and dict(order).get("payment_method") == "BINANCE":
-        await update.callback_query.edit_message_caption(
-            caption=(
-                f"⏳ *Auto-Verification*\n\n"
-                f"Please type and send your *Binance Pay Transaction ID / Reference* now.\n\n"
-                f"💡 This is a long number or starts with `P_` (e.g. `P_A231AD7KG4W71112`)."
-            ),
-            parse_mode="Markdown",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]
-            ]),
-        )
-        context.user_data["verify_order_id"] = order_id
-        return WAIT_BINANCE_REF
+    if order:
+        pm = dict(order).get("payment_method")
+        if pm in ("BINANCE", "POL"):
+            method_name = "Binance Pay Transaction ID" if pm == "BINANCE" else "POL Transaction Hash (TxID)"
+            hint = "long number or starts with <code>P_</code>" if pm == "BINANCE" else "the blockchain transaction hash"
+            await update.callback_query.edit_message_caption(
+                caption=(
+                    f"⏳ <b>Auto-Verification</b>\n\n"
+                    f"Please type and send your <b>{method_name}</b> now.\n\n"
+                    f"💡 This is usually a {hint}."
+                ),
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]
+                ]),
+            )
+            context.user_data["verify_order_id"] = order_id
+            return WAIT_BINANCE_REF
 
     await update.callback_query.edit_message_caption(
         caption=(
-            f"⏳ *Payment Submitted\\!*\n\n"
-            f"Order \\#{order_id} is pending verification\\.\n\n"
-            f"📸 *Please send the screenshot of your payment to @lovable47 now\\!*"
+            f"⏳ <b>Payment Submitted!</b>\n\n"
+            f"Order #{order_id} is pending verification.\n\n"
+            f"📸 <b>Please send the screenshot of your payment to {SUPPORT_USERNAME} now!</b>"
         ),
-        parse_mode="MarkdownV2",
+        parse_mode="HTML",
         reply_markup=back_home_kb(),
     )
     # Ping admin
     await notify_admin(
         context,
-        f"🔔 *User Confirmed Payment \\#{order_id}*\n"
-        f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
+        f"🔔 <b>User Confirmed Payment #{order_id}</b>\n"
+        f"User: {html_escape(user['first_name'])} (<code>{user['telegram_id']}</code>)\n"
         f"Please verify and approve via /admin"
     )
     return ConversationHandler.END
@@ -335,23 +351,24 @@ async def recv_binance_ref(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Show "verifying..." message
     verifying_msg = await update.message.reply_text(
-        "⏳ *Verifying transaction on Binance Pay...*\nThis may take up to 10 seconds.",
-        parse_mode="Markdown"
+        "⏳ <b>Verifying transaction on Binance Pay...</b>\nThis may take up to 10 seconds.",
+        parse_mode="HTML"
     )
     
-    from utils.binance_pay import verify_transaction
+    from utils.binance_pay import verify_transaction, verify_spot_deposit
     try:
-        success = await verify_transaction(ref_id, expected_amount, order_id)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error during Binance verification: {e}")
+        if order["payment_method"] == "POL":
+            success = await verify_spot_deposit(ref_id, expected_amount, order_id, network="MATIC")
+        else:
+            success = await verify_transaction(ref_id, expected_amount, order_id)
+    except Exception:
+        logger.exception(f"Error during verification for order {order_id}")
         success = False
         
     if success:
-        # Update order status to completed
+        # Update order status to paid
         async with get_db() as db:
-            await db.execute("UPDATE orders SET status='completed' WHERE id=?", (order_id,))
+            await db.execute("UPDATE orders SET status=? WHERE id=?", (OrderStatus.PAID, order_id))
             # Deliver order
             from utils.helpers import process_order_delivery
             await process_order_delivery(db, context.bot, order_id)
@@ -360,25 +377,24 @@ async def recv_binance_ref(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Notify user
         await verifying_msg.delete()
         await update.message.reply_text(
-            f"✅ *Payment Verified Successfully!*\n\n"
-            f"💰 *Amount Verified:* `${expected_amount:.2f}`\n"
-            f"🔖 *Transaction ID:* `{ref_id}`\n\n"
+            f"✅ <b>Payment Verified Successfully!</b>\n\n"
+            f"💰 <b>Amount Verified:</b> <code>${expected_amount:.2f}</code>\n"
+            f"🔖 <b>Transaction ID:</b> <code>{ref_id}</code>\n\n"
             f"⚡ Your product has been delivered above! Enjoy!",
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=back_home_kb()
         )
         
         # Notify admin of auto sale
         user = await get_user(update.effective_user.id)
-        from utils.messages import escape_md
-        total_str = escape_md(f"${expected_amount:.2f}")
+        total_str = f"${expected_amount:.2f}"
         await notify_admin(
             context,
-            f"🎉 *Automated Binance Pay Sale!* \n"
-            f"Order \\#{order_id} verified automatically\\!\n"
-            f"User: {escape_md(user['first_name'])} \\(`{user['telegram_id']}`\\)\n"
+            f"🎉 <b>Automated Binance Pay Sale!</b>\n"
+            f"Order #{order_id} verified automatically!\n"
+            f"User: {html_escape(user['first_name'])} (<code>{user['telegram_id']}</code>)\n"
             f"Total: {total_str}\n"
-            f"TxID: `{escape_md(ref_id)}`"
+            f"TxID: <code>{html_escape(ref_id)}</code>"
         )
         
         context.user_data.pop("verify_order_id", None)
@@ -387,11 +403,11 @@ async def recv_binance_ref(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Verification failed
         await verifying_msg.delete()
         await update.message.reply_text(
-            "❌ *Verification Failed!*\n\n"
+            "❌ <b>Verification Failed!</b>\n\n"
             "We couldn't find a matching transaction for that ID/Reference, "
             "or the payment amount/currency did not match your order.\n\n"
-            "✍️ *Please enter the correct Transaction ID, or click Cancel below:*",
-            parse_mode="Markdown",
+            "✍️ <b>Please enter the correct Transaction ID, or click Cancel below:</b>",
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel Verification", callback_data="cancel_binance_verify")]])
         )
         return WAIT_BINANCE_REF
@@ -479,7 +495,7 @@ async def cb_pay_cryptomus(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 payment_method, status, coupon_id, discount_amount)
                VALUES (?,?,?,?,?,?,?,?,?)""",
             (update.effective_user.id, prod_id, qty, unit_price, total,
-             "CRYPTOMUS", "pending", coupon_id, coupon_discount)
+             "CRYPTOMUS", OrderStatus.PENDING, coupon_id, coupon_discount)
         )
         order_id = cur.lastrowid
         await db.commit()
@@ -488,14 +504,20 @@ async def cb_pay_cryptomus(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         payment_url, payment_uuid = await create_cryptomus_invoice(total, unique_ref)
-    except Exception as e:
+    except Exception:
+        logger.exception(f"Cryptomus invoice creation failed for order {order_id}")
         # Delete pending order on failure
         async with get_db() as db:
             await db.execute("DELETE FROM orders WHERE id=?", (order_id,))
             await db.commit()
-        await update.callback_query.edit_message_text(
-            "❌ *Payment Gateway Error*\n\nUnable to generate payment link at this moment\\. Please try again later\\.",
-            parse_mode="MarkdownV2",
+        try:
+            await update.callback_query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=update.effective_user.id,
+            text="❌ <b>Payment Gateway Error</b>\n\nUnable to generate payment link at this moment. Please try again later.",
+            parse_mode="HTML",
             reply_markup=back_home_kb()
         )
         return
@@ -514,22 +536,26 @@ async def cb_pay_cryptomus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🏠 Back to Home", callback_data="main_menu")]
     ])
 
-    total_str = escape_md(f"${total:.2f}")
-    await update.callback_query.edit_message_text(
-        f"⚡ *Auto Crypto Invoice Generated\\!*\n\n"
-        f"📦 *Product:* {escape_md(p['name'])}\n"
-        f"🔢 *Quantity:* {qty}\n"
-        f"💰 *Total:* {total_str}\n\n"
-        f"Click the button below to pay via USDT, Binance Pay, etc\\.\n"
-        f"The bot will detect your payment automatically within 1 minute\\.",
-        parse_mode="MarkdownV2",
+    try:
+        await update.callback_query.message.delete()
+    except Exception:
+        pass
+    await context.bot.send_message(
+        chat_id=update.effective_user.id,
+        text=f"⚡ <b>Auto Crypto Invoice Generated!</b>\n\n"
+             f"📦 <b>Product:</b> {p['name']}\n"
+             f"🔢 <b>Quantity:</b> {qty}\n"
+             f"💰 <b>Total:</b> ${total:.2f}\n\n"
+             f"Click the button below to pay via USDT, Binance Pay, etc.\n"
+             f"The bot will detect your payment automatically within 1 minute.",
+        parse_mode="HTML",
         reply_markup=cryptomus_kb
     )
 
 
 def register_payment_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_pay_wallet,    pattern=r"^pay_wallet_\d+_\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_pay_trc20,     pattern=r"^pay_trc20_\d+_\d+$"))
+    app.add_handler(CallbackQueryHandler(cb_pay_pol,     pattern=r"^pay_pol_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_bep20,     pattern=r"^pay_bep20_\d+_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pay_binance,   pattern=r"^pay_binance_\d+_\d+$"))
     from telegram.ext import ConversationHandler, MessageHandler, filters, CommandHandler

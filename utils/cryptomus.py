@@ -62,6 +62,7 @@ async def create_cryptomus_invoice(amount: float, order_id: str) -> tuple[str, s
             res = r.json()
             if res.get("state") == 0 or res.get("status") == 200:
                 result = res["result"]
+                logger.info('Cryptomus invoice created successfully: uuid=%s, order_id=%s, amount=%.2f', result["uuid"], order_id, amount)
                 return result["url"], result["uuid"]
             else:
                 logger.error(f"Cryptomus API error response: {res}")
@@ -97,6 +98,7 @@ async def check_cryptomus_status(uuid: str) -> str:
             res = r.json()
             if res.get("state") == 0 or res.get("status") == 200:
                 c_status = res["result"].get("status", "").lower()
+                logger.info('Cryptomus payment status check: uuid=%s, raw_status=%s', uuid, c_status)
                 # Status classification
                 if c_status in ["paid", "paid_over"]:
                     return "paid"

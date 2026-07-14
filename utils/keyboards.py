@@ -92,6 +92,7 @@ def confirm_purchase_kb(product_id: int, qty: int) -> InlineKeyboardMarkup:
     buttons.append([InlineKeyboardButton("💳 Wallet — pay now", callback_data=f"pay_wallet_{product_id}_{qty}")])
     
     buttons.append([InlineKeyboardButton("🔷 Binance Pay", callback_data=f"pay_binance_{product_id}_{qty}")])
+    buttons.append([InlineKeyboardButton("💜 USDT (POL)", callback_data=f"pay_pol_{product_id}_{qty}")])
     if is_cryptomus_enabled():
         buttons.append([InlineKeyboardButton("💳 Other Cryptos (Auto)", callback_data=f"pay_cryptomus_{product_id}_{qty}")])
         
@@ -119,6 +120,8 @@ def topup_method_kb(amount: float) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton("🔷 Binance Pay (Auto)", callback_data=f"topup_cryptomus_{amount}")])
     else:
         buttons.append([InlineKeyboardButton("🔷 Binance Pay (Manual)",  callback_data=f"topup_binance_{amount}")])
+        
+    buttons.append([InlineKeyboardButton("💜 USDT (POL)", callback_data=f"topup_pol_{amount}")])
         
     buttons.extend([
         [InlineKeyboardButton("⬅️ Back",         callback_data="wallet_home")],
@@ -158,9 +161,11 @@ def profile_kb() -> InlineKeyboardMarkup:
 
 # ── Referral ─────────────────────────────────────────────────────────────────
 def referral_kb(bot_username: str, user_id: int) -> InlineKeyboardMarkup:
+    import urllib.parse
     link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+    encoded_link = urllib.parse.quote(link)
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📤 Share My Link", url=f"https://t.me/share/url?url={link}&text=Join+this+amazing+shop+bot!")],
+        [InlineKeyboardButton("📤 Share My Link", url=f"https://t.me/share/url?url={encoded_link}&text=Join+this+amazing+shop+bot!")],
         [InlineKeyboardButton("🏠 Back to Home",  callback_data="main_menu")],
     ])
 

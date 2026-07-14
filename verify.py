@@ -18,13 +18,16 @@ def main():
 
     # Clear/restore default bot description
     code = "🤖 Premium Google AI Pro / Gemini Advanced 18-Month activations. Instant automatic delivery, 100% secure."
-    print(f"Restoring default bot description: {code}")
+    try:
+        print(f"Restoring default bot description: {code}")
+    except UnicodeEncodeError:
+        print(f"Restoring default bot description: {code.encode('ascii', 'ignore').decode('ascii')}")
 
     r1 = requests.post(f"https://api.telegram.org/bot{token}/setMyDescription", json={"description": code})
-    r2 = requests.post(f"https://api.telegram.org/bot{token}/setMyAboutText", json={"about": code})
+    r2 = requests.post(f"https://api.telegram.org/bot{token}/setMyShortDescription", json={"short_description": code})
 
     print("Set Description Response:", r1.json())
-    print("Set About Response:", r2.json())
+    print("Set Short Description Response:", r2.json())
 
 if __name__ == "__main__":
     main()

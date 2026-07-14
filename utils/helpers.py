@@ -41,11 +41,11 @@ def get_product_unit_price(product_name: str, base_price: float, qty: int) -> fl
         if qty >= 50:
             return 0.80
         elif qty >= 30:
-            return 0.85
+            return 0.80
         elif qty >= 10:
-            return 0.90
+            return 0.80
         else:
-            return 0.95
+            return 0.80
     return base_price
 
 

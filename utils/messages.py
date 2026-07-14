@@ -40,10 +40,7 @@ def product_detail_msg(p: dict) -> str:
     bulk_pricing = ""
     if "google ai pro" in name.lower() or "gemini" in name.lower():
         bulk_pricing = (
-            "• 1 – 9: $0.95 each\n"
-            "• 10 – 29: $0.90 each\n"
-            "• 30 – 49: $0.85 each\n"
-            "• 50+: $0.80 each\n"
+            "🔥 *PROMO:* $0.80 each for all quantities!\n\n"
         )
 
     return (

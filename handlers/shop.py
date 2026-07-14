@@ -242,7 +242,7 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     pn_lower = p["name"].lower()
     if "google ai pro" in pn_lower or "gemini" in pn_lower:
-        text += "Select quantity:    ( FLASH SALE: ALL $0.80! )"
+        text += "Select quantity:    ( 1-9 $0.95 | +10 $0.90 | +30 $0.85 | +50 $0.80 )"
     else:
         text += "Select quantity:"
     markup = quantity_kb(prod_id)

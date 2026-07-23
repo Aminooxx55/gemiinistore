@@ -52,9 +52,21 @@ def products_list_kb(products: list, cat_id: int = 0) -> InlineKeyboardMarkup:
     for p in products:
         stock = p.get("available_stock", p.get("stock", 0))
         stock_str = "♾️" if stock == -1 else str(stock)
-        emoji = p.get("emoji", "📦")
-        name = p.get("name", "Product")
-        label = f"{emoji} {name} ({stock_str})"
+        emoji = p.get("emoji", "").strip()
+        name = p.get("name", "Product").strip()
+        
+        # Strip leading emoji if present in name to prevent double rendering
+        if emoji and name.startswith(emoji):
+            name = name[len(emoji):].strip()
+        elif name and not emoji:
+            # Extract leading emoji from name if emoji field was empty
+            first_word = name.split()[0] if name.split() else ""
+            if any(ord(char) > 127 for char in first_word):
+                emoji = first_word
+                name = name[len(first_word):].strip()
+
+        icon = emoji if emoji else "📦"
+        label = f"{icon} {name} ({stock_str})"
         rows.append([InlineKeyboardButton(label, callback_data=f"prod_{p['id']}")])
     rows.append([InlineKeyboardButton("🔄 Refresh",       callback_data="shop_home")])
     rows.append([InlineKeyboardButton("🏠 Back to Home",  callback_data="main_menu")])

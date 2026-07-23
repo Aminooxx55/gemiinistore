@@ -47,14 +47,16 @@ def shop_categories_kb(categories: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def products_list_kb(products: list, cat_id: int) -> InlineKeyboardMarkup:
+def products_list_kb(products: list, cat_id: int = 0) -> InlineKeyboardMarkup:
     rows = []
     for p in products:
-        stock_str = "♾️" if p["stock"] == -1 else f"📦 {p['stock']}"
-        price_str = "FREE 🔥" if p["is_free"] else f"${p['price']:.2f}"
-        label = f"{p['emoji']} {p['name']} | {price_str} | {stock_str}"
+        stock = p.get("available_stock", p.get("stock", 0))
+        stock_str = "♾️" if stock == -1 else str(stock)
+        emoji = p.get("emoji", "📦")
+        name = p.get("name", "Product")
+        label = f"{emoji} {name} ({stock_str})"
         rows.append([InlineKeyboardButton(label, callback_data=f"prod_{p['id']}")])
-    rows.append([InlineKeyboardButton("🔄 Refresh",       callback_data=f"cat_{cat_id}")])
+    rows.append([InlineKeyboardButton("🔄 Refresh",       callback_data="shop_home")])
     rows.append([InlineKeyboardButton("🏠 Back to Home",  callback_data="main_menu")])
     return InlineKeyboardMarkup(rows)
 

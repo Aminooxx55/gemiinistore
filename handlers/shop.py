@@ -19,25 +19,25 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.callback_query.message
     
     async with get_db() as db:
-        cur = await db.execute("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
-        categories = [dict(r) for r in await cur.fetchall()]
+        cur = await db.execute("SELECT * FROM products WHERE is_active=1 AND is_free=0 ORDER BY id")
+        products = [dict(r) for r in await cur.fetchall()]
+        
+        for p in products:
+            if p["stock"] == -1:
+                p["available_stock"] = -1
+            else:
+                cur_s = await db.execute("SELECT COUNT(*) FROM product_stock WHERE product_id=? AND is_sold=0", (p["id"],))
+                s_row = await cur_s.fetchone()
+                p["available_stock"] = s_row[0] if (s_row and s_row[0] > 0) else p["stock"]
 
     from config import WELCOME_BANNER_URL
 
-    if not categories:
-        # Fallback to all products if no categories exist
-        async with get_db() as db:
-            cur = await db.execute("SELECT * FROM products WHERE is_active=1 AND is_free=0 ORDER BY id")
-            products = [dict(r) for r in await cur.fetchall()]
-        if not products:
-            text = "🛍️ <b>Shop</b>\n\nNo products available yet. Check back soon!"
-            markup = back_home_kb()
-        else:
-            text = "🛍️ <b>Shop — All Products</b>\n\nSelect a product to view details:"
-            markup = products_list_kb(products, 0)
+    if not products:
+        text = "🛍️ <b>Shop Catalog</b>\n\nNo products available yet. Check back soon!"
+        markup = back_home_kb()
     else:
-        text = "🛍️ <b>Shop Categories</b>\n\nSelect a category below to browse products:"
-        markup = shop_categories_kb(categories)
+        text = "🛍️ <b>Shop Catalog</b>\n\nSelect a service below:"
+        markup = products_list_kb(products, 0)
 
     try:
         if message.photo or message.document or message.video:

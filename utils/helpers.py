@@ -34,18 +34,40 @@ def get_photo_object(path_or_url: str):
     return "https://placehold.co/800x400/png?text=Welcome"
 
 
-def get_product_unit_price(product_name: str, base_price: float, qty: int) -> float:
-    """Calculate the unit price based on product name and quantity (bulk pricing)."""
+def get_product_unit_price(product_name: str, base_price: float, qty: int, product_id: int = None) -> float:
+    """Calculate the unit price based on custom per-product tier prices or default rules."""
+    import json
+    if product_id:
+        try:
+            import sqlite3
+            from config import DB_PATH
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT tier_prices FROM products WHERE id=?", (product_id,)).fetchone()
+            conn.close()
+            if row and row["tier_prices"]:
+                tiers = json.loads(row["tier_prices"])
+                if qty >= 50 and "tier_50" in tiers and tiers["tier_50"] is not None and float(tiers["tier_50"]) > 0:
+                    return float(tiers["tier_50"])
+                elif qty >= 30 and "tier_30" in tiers and tiers["tier_30"] is not None and float(tiers["tier_30"]) > 0:
+                    return float(tiers["tier_30"])
+                elif qty >= 10 and "tier_10" in tiers and tiers["tier_10"] is not None and float(tiers["tier_10"]) > 0:
+                    return float(tiers["tier_10"])
+                elif "tier_1" in tiers and tiers["tier_1"] is not None and float(tiers["tier_1"]) > 0:
+                    return float(tiers["tier_1"])
+        except Exception:
+            pass
+
     pn_lower = product_name.lower()
     if "google ai pro" in pn_lower or "gemini" in pn_lower:
         if qty >= 50:
-            return 0.80
+            return 0.70
         elif qty >= 30:
-            return 0.85
+            return 0.70
         elif qty >= 10:
-            return 0.90
+            return 0.70
         else:
-            return 0.95
+            return 0.70
     return base_price
 
 
@@ -486,5 +508,19 @@ async def process_order_delivery(db, bot, order_id: int):
                 
         except Exception as e:
             logger.error(f"Failed to send instant delivery message: {e}")
+
+        # 5. Post a public sale announcement to the community channel
+        try:
+            from config import REQUIRED_CHANNEL
+            from utils.messages import channel_sale_announcement_msg
+            remaining_stock = -1 if p_stock == -1 else unsold_count
+            announce_text = channel_sale_announcement_msg(
+                order["product_name"], qty, total_price, remaining_stock
+            )
+            await bot.send_message(
+                chat_id=REQUIRED_CHANNEL, text=announce_text, parse_mode="HTML"
+            )
+        except Exception as e:
+            logger.error(f"Failed to post sale announcement to channel: {e}")
 
 

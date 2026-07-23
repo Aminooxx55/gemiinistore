@@ -216,8 +216,6 @@ async def run_bot():
 
     logger.info("🤖 Bot is running... Press Ctrl+C to stop.")
     async with app:
-        if app.post_init:
-            await app.post_init(app)
         await app.start()
         await app.updater.start_polling(drop_pending_updates=True)
         # Keep running until Ctrl+C

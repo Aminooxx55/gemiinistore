@@ -173,6 +173,10 @@ CREATE_INDEX_SUPPORT_USER = "CREATE INDEX IF NOT EXISTS idx_support_user_id ON s
 
 SEED_CATEGORIES = [
     ("🤖 Gemini Advanced", "🤖"),
+    ("📚 Coursera", "📚"),
+    ("🛠️ Supabase", "🛠️"),
+    ("🔁 N8N", "🔁"),
+    ("💡 Lovable", "💡"),
 ]
 
 SEED_PRODUCTS = [
@@ -197,6 +201,13 @@ async def init_db():
         # Migration: Add image_url column if not exists
         try:
             await db.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
+            await db.commit()
+        except Exception:
+            pass
+
+        # Migration: Add tier_prices column if not exists
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN tier_prices TEXT")
             await db.commit()
         except Exception:
             pass

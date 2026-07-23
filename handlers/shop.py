@@ -242,7 +242,7 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     pn_lower = p["name"].lower()
     if "google ai pro" in pn_lower or "gemini" in pn_lower:
-        text += "Select quantity:    ( 1-9 $0.95 | +10 $0.90 | +30 $0.85 | +50 $0.80 )"
+        text += "Select quantity:    ( 1-9 $0.70 | +10 $0.70 | +30 $0.70 | +50 $0.70 )"
     else:
         text += "Select quantity:"
     markup = quantity_kb(prod_id)
@@ -297,7 +297,7 @@ async def _show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, prod
         return
 
     coupon_discount = context.user_data.get("pending", {}).get("coupon_discount", 0.0)
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = unit_price * qty
     user = await get_user(update.effective_user.id)
 
@@ -386,7 +386,7 @@ async def recv_custom_qty(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return AWAIT_CUSTOM_QTY
 
     user = await get_user(update.effective_user.id)
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = unit_price * qty
     context.user_data["pending"] = {"product_id": prod_id, "qty": qty, "coupon_discount": 0.0}
     text_msg = confirm_purchase_msg(p["name"], qty, unit_price, total, user["balance"])
@@ -455,7 +455,7 @@ async def recv_coupon_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     p = dict(p)
     coupon = dict(coupon)
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = unit_price * qty
     discount = 0.0
     if coupon["discount_percent"] > 0:

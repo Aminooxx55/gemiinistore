@@ -114,7 +114,7 @@ async def cb_pay_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     p = dict(p)
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = max(0.0, unit_price * qty - coupon_discount)
 
     if user["balance"] < total:
@@ -197,7 +197,7 @@ async def _send_crypto_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
     pending = context.user_data.get("pending", {})
     coupon_discount = pending.get("coupon_discount", 0.0)
     coupon_id = pending.get("coupon_id")
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = max(0.0, unit_price * qty - coupon_discount)
 
     # Create pending order
@@ -484,7 +484,7 @@ async def cb_pay_cryptomus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pending = context.user_data.get("pending", {})
     coupon_discount = pending.get("coupon_discount", 0.0)
     coupon_id = pending.get("coupon_id")
-    unit_price = get_product_unit_price(p["name"], p["price"], qty)
+    unit_price = get_product_unit_price(p["name"], p["price"], qty, p["id"])
     total = max(0.0, unit_price * qty - coupon_discount)
 
     # Create pending order

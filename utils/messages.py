@@ -40,10 +40,10 @@ def product_detail_msg(p: dict) -> str:
     bulk_pricing = ""
     if "google ai pro" in name.lower() or "gemini" in name.lower():
         bulk_pricing = (
-            "• 1 – 9: $0.95 each\n"
-            "• 10 – 29: $0.90 each\n"
-            "• 30 – 49: $0.85 each\n"
-            "• 50+: $0.80 each\n"
+            "• 1 – 9: $0.70 each\n"
+            "• 10 – 29: $0.70 each\n"
+            "• 30 – 49: $0.70 each\n"
+            "• 50+: $0.70 each\n"
         )
 
     return (
@@ -184,6 +184,40 @@ def format_profile_text(user: dict) -> str:
         f"🪪 <b>Membership:</b> {html_escape(membership)}\n"
         f"⬆️ <b>Next Tier:</b> {next_tier}\n"
         f"{sep()}"
+    )
+
+
+def channel_sale_announcement_msg(product_name: str, qty: int, total_price: float, remaining_stock: int) -> str:
+    """Posted to the public channel whenever a purchase is completed."""
+    name = html_escape(product_name)
+    if remaining_stock == -1:
+        stock_str = "♾️ Unlimited"
+    elif remaining_stock == 0:
+        stock_str = "⚠️ OUT OF STOCK"
+    else:
+        stock_str = f"{remaining_stock} account(s) left"
+
+    return (
+        f"🛒 <b>NEW SALE!</b>\n\n"
+        f"📦 <b>{name}</b>\n"
+        f"🔢 <b>Qty Bought:</b> {qty} account{'s' if qty > 1 else ''}\n"
+        f"💰 <b>Total:</b> ${total_price:.2f} USDT\n"
+        f"📊 <b>Stock Remaining:</b> {stock_str}\n\n"
+        f"⚡️ <i>Get yours before it's gone — visit the shop now!</i>"
+    )
+
+
+def channel_restock_msg(product_name: str, price: float, qty_added: int, remaining: int) -> str:
+    """Posted to the public channel whenever admin uploads new stock."""
+    name = html_escape(product_name)
+    stock_str = "♾️ Unlimited" if remaining == -1 else f"{remaining} account(s)"
+    return (
+        f"🆕 <b>NEW STOCK JUST DROPPED</b>⁉️\n\n"
+        f"📦 <b>{name}</b>\n"
+        f"🏷 <b>Price:</b> {price:.2f} USDT\n"
+        f"📦 <b>Available now:</b> {stock_str}\n"
+        f"✨ <b>Freshly restocked:</b> {qty_added} new account{'s' if qty_added > 1 else ''}\n\n"
+        f"⚡️ Secure your account before the stock runs out!"
     )
 
 

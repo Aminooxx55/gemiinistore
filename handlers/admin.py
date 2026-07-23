@@ -955,7 +955,6 @@ def register_admin_handlers(app):
     app.add_handler(CallbackQueryHandler(cb_admin_topup_reject,   pattern=r"^admin_topup_reject_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_admin_users,          pattern="^admin_users$"))
     app.add_handler(CallbackQueryHandler(cb_admin_user_detail,    pattern=r"^admin_user_detail_\d+$"))
-    app.add_handler(CallbackQueryHandler(cb_admin_add_balance,    pattern=r"^admin_addbal_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_admin_ban,            pattern=r"^admin_ban_\d+$"))
     app.add_handler(CallbackQueryHandler(cb_admin_coupons,        pattern="^admin_coupons$"))
     app.add_handler(CallbackQueryHandler(cb_admin_coupon_toggle,  pattern=r"^admin_coupon_toggle_\d+$"))

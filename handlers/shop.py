@@ -19,49 +19,26 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.callback_query.message
     
     async with get_db() as db:
-        cur = await db.execute("SELECT * FROM products WHERE is_active=1 AND is_free=0 ORDER BY id")
-        products = [dict(r) for r in await cur.fetchall()]
+        cur = await db.execute("SELECT * FROM categories WHERE is_active=1 ORDER BY id")
+        categories = [dict(r) for r in await cur.fetchall()]
 
     from config import WELCOME_BANNER_URL
 
-    if not products:
-        text = "🛍️ <b>Shop</b>\n\nNo products available yet. Check back soon!"
-        markup = back_home_kb()
-        try:
-            if message.photo or message.document or message.video:
-                await message.edit_caption(caption=text, parse_mode="HTML", reply_markup=markup)
-            else:
-                await message.edit_text(text=text, parse_mode="HTML", reply_markup=markup)
-        except Exception:
-            await message.delete()
-            try:
-                await context.bot.send_photo(
-                    chat_id=update.effective_user.id,
-                    photo=get_photo_object(WELCOME_BANNER_URL),
-                    caption=text,
-                    parse_mode="HTML",
-                    reply_markup=markup
-                )
-            except Exception:
-                await context.bot.send_message(
-                    chat_id=update.effective_user.id,
-                    text=text,
-                    parse_mode="HTML",
-                    reply_markup=markup
-                )
-        return
+    if not categories:
+        # Fallback to all products if no categories exist
+        async with get_db() as db:
+            cur = await db.execute("SELECT * FROM products WHERE is_active=1 AND is_free=0 ORDER BY id")
+            products = [dict(r) for r in await cur.fetchall()]
+        if not products:
+            text = "🛍️ <b>Shop</b>\n\nNo products available yet. Check back soon!"
+            markup = back_home_kb()
+        else:
+            text = "🛍️ <b>Shop — All Products</b>\n\nSelect a product to view details:"
+            markup = products_list_kb(products, 0)
+    else:
+        text = "🛍️ <b>Shop Categories</b>\n\nSelect a category below to browse products:"
+        markup = shop_categories_kb(categories)
 
-    if len(products) == 1:
-        # Jump directly to product detail using our new helper
-        await _show_product_detail(message, update.effective_user.id, context, products[0]['id'])
-        return
-
-    text = (
-        "🛍️ <b>Shop — All Products</b>\n\n"
-        "Browse our products below. "
-        "Green = in stock, Red = out of stock."
-    )
-    markup = products_list_kb(products, 0)
     try:
         if message.photo or message.document or message.video:
             await message.edit_caption(caption=text, parse_mode="HTML", reply_markup=markup)
@@ -86,8 +63,59 @@ async def cb_shop_home(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 async def cb_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # This handler is deprecated since categories are bypassed
-    await cb_shop_home(update, context)
+    query = update.callback_query
+    await query.answer()
+    message = query.message
+    
+    try:
+        cat_id = int(query.data.split("_")[1])
+    except Exception:
+        await cb_shop_home(update, context)
+        return
+
+    async with get_db() as db:
+        cur = await db.execute("SELECT * FROM categories WHERE id=?", (cat_id,))
+        category = await cur.fetchone()
+        
+        cur = await db.execute("SELECT * FROM products WHERE category_id=? AND is_active=1 AND is_free=0 ORDER BY id", (cat_id,))
+        products = [dict(r) for r in await cur.fetchall()]
+
+    from config import WELCOME_BANNER_URL
+
+    if not category:
+        await query.answer("Category not found", show_alert=True)
+        return
+
+    cat_dict = dict(category)
+    if not products:
+        text = f"{cat_dict.get('emoji', '📦')} <b>{cat_dict.get('name', 'Category')}</b>\n\nNo active products in this category yet."
+        markup = shop_categories_kb([cat_dict])
+    else:
+        text = f"{cat_dict.get('emoji', '📦')} <b>{cat_dict.get('name', 'Category')}</b>\n\nSelect a product below:"
+        markup = products_list_kb(products, cat_id)
+
+    try:
+        if message.photo or message.document or message.video:
+            await message.edit_caption(caption=text, parse_mode="HTML", reply_markup=markup)
+        else:
+            await message.edit_text(text=text, parse_mode="HTML", reply_markup=markup)
+    except Exception:
+        await message.delete()
+        try:
+            await context.bot.send_photo(
+                chat_id=update.effective_user.id,
+                photo=get_photo_object(WELCOME_BANNER_URL),
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
+        except Exception:
+            await context.bot.send_message(
+                chat_id=update.effective_user.id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=markup
+            )
 
 
 async def _show_product_detail(message, user_id: int, context: ContextTypes.DEFAULT_TYPE, prod_id: int):

@@ -460,30 +460,45 @@ async def is_user_member_of_channel(bot, user_id: int, force_check: bool = False
         member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
         is_member = member.status in ["member", "administrator", "creator"]
         
-        # Cache results for 5 minutes (300 seconds)
-        MEMBERSHIP_CACHE[user_id] = (is_member, now + 300)
+        # Only cache positive membership for 5 minutes (300s).
+        # Negative membership (False) is not cached so user can retry immediately after joining.
+        if is_member:
+            MEMBERSHIP_CACHE[user_id] = (True, now + 300)
+        else:
+            MEMBERSHIP_CACHE.pop(user_id, None)
+
         return is_member
     except Exception as e:
+        err_msg = str(e).lower()
         import logging
         logger = logging.getLogger(__name__)
+        
+        # Normal Telegram "user is not in chat" responses:
+        if any(term in err_msg for term in ["user not found", "member not found", "user_not_participant", "participant"]):
+            logger.info(f"User {user_id} is not a member of {REQUIRED_CHANNEL}")
+            MEMBERSHIP_CACHE.pop(user_id, None)
+            return False if STRICT_CHANNEL_CHECK else True
+
         logger.warning(f"Failed to check channel membership for {user_id} on {REQUIRED_CHANNEL}: {e}")
         
-        # If check fails (e.g. bot not administrator), notify the admin so they can fix it
-        try:
-            await bot.send_message(
-                chat_id=ADMIN_ID,
-                text=(
-                    f"⚠️ <b>Channel Membership Check Error!</b>\n\n"
-                    f"The bot failed to verify membership for user <code>{user_id}</code> in channel <code>{REQUIRED_CHANNEL}</code>.\n"
-                    f"<b>Error:</b> <code>{str(e)}</code>\n\n"
-                    f"💡 <b>Action Required:</b> Ensure the bot is added to the channel <code>{REQUIRED_CHANNEL}</code> as an <b>Administrator</b> with rights to check chat members."
-                ),
-                parse_mode="HTML"
-            )
-        except Exception as admin_err:
-            logger.error(f"Failed to notify admin of membership check error: {admin_err}")
+        # Only notify admin if it's an actual bot configuration/permission error
+        if any(term in err_msg for term in ["admin", "bot is not", "chat not found", "privileges"]):
+            try:
+                await bot.send_message(
+                    chat_id=ADMIN_ID,
+                    text=(
+                        f"⚠️ <b>Channel Membership Check Error!</b>\n\n"
+                        f"The bot failed to verify membership for user <code>{user_id}</code> in channel <code>{REQUIRED_CHANNEL}</code>.\n"
+                        f"<b>Error:</b> <code>{str(e)}</code>\n\n"
+                        f"💡 <b>Action Required:</b> Ensure the bot is added to the channel <code>{REQUIRED_CHANNEL}</code> as an <b>Administrator</b> with rights to check chat members."
+                    ),
+                    parse_mode="HTML"
+                )
+            except Exception as admin_err:
+                logger.error(f"Failed to notify admin of membership check error: {admin_err}")
             
         return not STRICT_CHANNEL_CHECK
+
 
 
 async def process_order_delivery(db, bot, order_id: int):

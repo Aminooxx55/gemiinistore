@@ -36,23 +36,26 @@ def product_detail_msg(p: dict) -> str:
 
     desc = html_escape(p.get("description") or "")
     name = html_escape(p.get("name", ""))
+    sold = p.get("sold", 0) or 0
 
-    bulk_pricing = ""
-    if "google ai pro" in name.lower() or "gemini" in name.lower():
-        bulk_pricing = (
-            "• 1 – 9: $0.70 each\n"
-            "• 10 – 29: $0.70 each\n"
-            "• 30 – 49: $0.70 each\n"
-            "• 50+: $0.70 each\n"
-        )
+    # Build a real, data-driven bulk-pricing block from tier_prices when the
+    # product has bulk discount enabled. Never hardcoded, never drifts.
+    tier_block = ""
+    try:
+        from utils.helpers import build_tier_summary
+        summary = build_tier_summary(p.get("id"), float(p.get("price", 0) or 0))
+        if summary:
+            tier_block = f"{summary}\n"
+    except Exception:
+        tier_block = ""
 
     return (
         f"📦 <b>{name.upper()}</b>\n"
         f"{sep()}\n"
         f"{desc}\n\n"
-        f"{bulk_pricing}"
+        f"{tier_block}"
         f"📊 Stock: {stock_str}\n"
-        f"🔥 Popularity:  20 items sold\n\n"
+        f"🔥 Popularity: {sold} items sold\n\n"
         f"👇 Select your action below:"
     )
 

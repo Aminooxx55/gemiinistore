@@ -39,6 +39,14 @@ def ensure_db_schema():
             conn.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
             conn.commit()
             logger.info("Migrated products table: added image_url column.")
+        if 'logo_url' not in cols:
+            conn.execute("ALTER TABLE products ADD COLUMN logo_url TEXT")
+            conn.commit()
+            logger.info("Migrated products table: added logo_url column.")
+        if 'bulk_discount_enabled' not in cols:
+            conn.execute("ALTER TABLE products ADD COLUMN bulk_discount_enabled INTEGER DEFAULT 0")
+            conn.commit()
+            logger.info("Migrated products table: added bulk_discount_enabled column.")
         conn.close()
     except Exception as e:
         logger.error(f"Schema migration error: {e}")
@@ -778,10 +786,18 @@ HTML_TEMPLATE = r"""
 
             <!-- REMISE (BULK DISCOUNT TIERS) SECTION -->
             <div class="bg-gray-900/60 p-4 rounded-xl border border-indigo-500/20 space-y-3">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-tags text-indigo-400 text-xs"></i>
-                    <h4 class="text-xs font-bold text-white uppercase tracking-wider">Remise / Tiered Bulk Discount Prices ($ USD)</h4>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-tags text-indigo-400 text-xs"></i>
+                        <h4 class="text-xs font-bold text-white uppercase tracking-wider">Remise / Tiered Bulk Discount Prices ($ USD)</h4>
+                    </div>
+                    <label class="inline-flex items-center cursor-pointer space-x-2">
+                        <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Enable</span>
+                        <input type="checkbox" id="prod-bulk-enabled" class="sr-only peer" onchange="toggleBulkFields()">
+                        <div class="relative w-9 h-5 bg-gray-700 peer-checked:bg-emerald-500 rounded-full transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
+                    </label>
                 </div>
+                <p class="text-[10px] text-gray-500" id="bulk-disabled-note">Bulk discount is <b class="text-rose-400">OFF</b> — every quantity is charged the base unit price. Turn on to apply the tiers below.</p>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
                         <label class="block text-[10px] text-gray-400 mb-1 font-semibold">1 – 9 Qty</label>
@@ -809,7 +825,12 @@ HTML_TEMPLATE = r"""
             </div>
             <div>
                 <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Product Image URL <span class="text-gray-600 normal-case font-normal">(optional — shown in bot)</span></label>
-                <input type="url" id="prod-image-url" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="https://example.com/image.jpg">
+                <input type="text" id="prod-image-url" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="https://example.com/image.jpg or static/gemini_banner.jpg">
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Brand Logo URL <span class="text-gray-600 normal-case font-normal">(optional — small logo badge on the product image)</span></label>
+                <input type="text" id="prod-logo-url" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500" placeholder="static/gemini_logo.png">
+                <p class="text-[10px] text-gray-500 mt-1">Use a local file (e.g. <code>static/gemini_logo.png</code>) for the badge to be composited onto the product image. Remote URLs show the image without the overlay.</p>
             </div>
             <div class="flex justify-end space-x-3 border-t border-gray-800 pt-3">
                 <button onclick="closeProductModal()" class="px-4 py-2 bg-gray-900 border border-gray-800 hover:bg-gray-800 rounded-xl text-xs font-semibold text-gray-300">Cancel</button>
@@ -1150,19 +1171,25 @@ HTML_TEMPLATE = r"""
                 }
 
                 tbody.innerHTML = products.map(p => {
-                    let tiersDisplay = '<span class="text-gray-500 text-xs">Default</span>';
-                    if (p.tier_prices) {
+                    let tiersDisplay;
+                    if (!p.bulk_discount_enabled) {
+                        tiersDisplay = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-700/40 text-gray-400 border border-gray-600/40">Off · base price</span>';
+                    } else if (p.tier_prices) {
                         try {
                             const t = JSON.parse(p.tier_prices);
                             tiersDisplay = `
                                 <div class="text-[11px] space-y-0.5 font-mono">
-                                    <span class="text-emerald-400">1-9: $${t.tier_1 || p.price}</span> | 
-                                    <span class="text-emerald-400">10+: $${t.tier_10 || p.price}</span> | 
-                                    <span class="text-emerald-400">30+: $${t.tier_30 || p.price}</span> | 
+                                    <span class="text-emerald-400">1-9: $${t.tier_1 || p.price}</span> |
+                                    <span class="text-emerald-400">10+: $${t.tier_10 || p.price}</span> |
+                                    <span class="text-emerald-400">30+: $${t.tier_30 || p.price}</span> |
                                     <span class="text-emerald-400">50+: $${t.tier_50 || p.price}</span>
                                 </div>
                             `;
-                        } catch (e) {}
+                        } catch (e) {
+                            tiersDisplay = '<span class="text-emerald-400 text-[10px] font-bold uppercase">On</span>';
+                        }
+                    } else {
+                        tiersDisplay = '<span class="text-emerald-400 text-[10px] font-bold uppercase">On · base price</span>';
                     }
 
                     return `
@@ -1219,15 +1246,29 @@ HTML_TEMPLATE = r"""
             document.getElementById('prod-id').value = '';
             document.getElementById('prod-name').value = '';
             document.getElementById('prod-emoji').value = '📦';
-            document.getElementById('prod-price').value = '0.70';
+            document.getElementById('prod-price').value = '0.95';
             document.getElementById('prod-stock').value = '0';
             document.getElementById('prod-desc').value = '';
             document.getElementById('prod-image-url').value = '';
-            document.getElementById('tier-1-price').value = '0.70';
-            document.getElementById('tier-10-price').value = '0.70';
-            document.getElementById('tier-30-price').value = '0.70';
-            document.getElementById('tier-50-price').value = '0.70';
+            document.getElementById('prod-logo-url').value = '';
+            document.getElementById('prod-bulk-enabled').checked = false;
+            document.getElementById('tier-1-price').value = '0.95';
+            document.getElementById('tier-10-price').value = '0.90';
+            document.getElementById('tier-30-price').value = '0.85';
+            document.getElementById('tier-50-price').value = '0.75';
+            toggleBulkFields();
             document.getElementById('modal-product').classList.remove('hidden');
+        }
+
+        function toggleBulkFields() {
+            const on = document.getElementById('prod-bulk-enabled').checked;
+            ['tier-1-price', 'tier-10-price', 'tier-30-price', 'tier-50-price'].forEach(id => {
+                const el = document.getElementById(id);
+                el.disabled = !on;
+                el.style.opacity = on ? '1' : '0.4';
+            });
+            const note = document.getElementById('bulk-disabled-note');
+            if (note) note.style.display = on ? 'none' : 'block';
         }
 
         function editProduct(p) {
@@ -1240,16 +1281,18 @@ HTML_TEMPLATE = r"""
             document.getElementById('prod-stock').value = p.stock;
             document.getElementById('prod-desc').value = p.description || '';
             document.getElementById('prod-image-url').value = p.image_url || '';
+            document.getElementById('prod-logo-url').value = p.logo_url || '';
+            document.getElementById('prod-bulk-enabled').checked = !!p.bulk_discount_enabled;
             document.getElementById('prod-category').value = p.category_id;
 
             let t1 = p.price, t10 = p.price, t30 = p.price, t50 = p.price;
             if (p.tier_prices) {
                 try {
                     const t = JSON.parse(p.tier_prices);
-                    t1 = t.tier_1 || p.price;
-                    t10 = t.tier_10 || p.price;
-                    t30 = t.tier_30 || p.price;
-                    t50 = t.tier_50 || p.price;
+                    t1 = t.tier_1 !== undefined && t.tier_1 !== null ? t.tier_1 : p.price;
+                    t10 = t.tier_10 !== undefined && t.tier_10 !== null ? t.tier_10 : p.price;
+                    t30 = t.tier_30 !== undefined && t.tier_30 !== null ? t.tier_30 : p.price;
+                    t50 = t.tier_50 !== undefined && t.tier_50 !== null ? t.tier_50 : p.price;
                 } catch(e) {}
             }
             document.getElementById('tier-1-price').value = t1;
@@ -1257,7 +1300,19 @@ HTML_TEMPLATE = r"""
             document.getElementById('tier-30-price').value = t30;
             document.getElementById('tier-50-price').value = t50;
 
+            toggleBulkFields();
             document.getElementById('modal-product').classList.remove('hidden');
+        }
+
+        function toggleBulkFields() {
+            const on = document.getElementById('prod-bulk-enabled').checked;
+            ['tier-1-price','tier-10-price','tier-30-price','tier-50-price'].forEach(id => {
+                const el = document.getElementById(id);
+                el.disabled = !on;
+                el.style.opacity = on ? '1' : '0.4';
+            });
+            const note = document.getElementById('bulk-disabled-note');
+            if (note) note.style.display = on ? 'none' : 'block';
         }
 
         function closeProductModal() {
@@ -1266,13 +1321,15 @@ HTML_TEMPLATE = r"""
 
         async function saveProduct() {
             const pId = document.getElementById('prod-id').value;
+            const basePrice = parseFloat(document.getElementById('prod-price').value) || 0.0;
             const tierPrices = {
-                tier_1: parseFloat(document.getElementById('tier-1-price').value) || 0.70,
-                tier_10: parseFloat(document.getElementById('tier-10-price').value) || 0.70,
-                tier_30: parseFloat(document.getElementById('tier-30-price').value) || 0.70,
-                tier_50: parseFloat(document.getElementById('tier-50-price').value) || 0.70
+                tier_1: parseFloat(document.getElementById('tier-1-price').value) || basePrice,
+                tier_10: parseFloat(document.getElementById('tier-10-price').value) || basePrice,
+                tier_30: parseFloat(document.getElementById('tier-30-price').value) || basePrice,
+                tier_50: parseFloat(document.getElementById('tier-50-price').value) || basePrice
             };
 
+            const bulkEnabled = document.getElementById('prod-bulk-enabled').checked;
             const data = {
                 id: pId ? parseInt(pId) : null,
                 name: document.getElementById('prod-name').value.trim(),
@@ -1281,8 +1338,10 @@ HTML_TEMPLATE = r"""
                 stock: parseInt(document.getElementById('prod-stock').value),
                 description: document.getElementById('prod-desc').value.trim(),
                 image_url: document.getElementById('prod-image-url').value.trim(),
+                logo_url: document.getElementById('prod-logo-url').value.trim(),
                 category_id: parseInt(document.getElementById('prod-category').value),
-                tier_prices: JSON.stringify(tierPrices)
+                tier_prices: JSON.stringify(tierPrices),
+                bulk_discount_enabled: bulkEnabled ? 1 : 0
             };
 
             const endpoint = pId ? '/api/product/edit' : '/api/product/add';
@@ -1851,30 +1910,34 @@ HTML_TEMPLATE = r"""
         }
 
         // Settings Tab
+        function escapeHtmlAttr(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
         async function fetchSettings() {
             try {
                 const res = await fetch('/api/settings');
-                const settings = await res.json();
+                const grouped = await res.json();
                 const container = document.getElementById('settings-form-container');
 
-                container.innerHTML = Object.keys(settings).map(key => {
-                    let desc = '';
-                    if (key === 'GEMINI_API_KEY') desc = 'Google Gemini AI API key for store analysis and insights';
-                    else if (key === 'CRYPTOMUS_MERCHANT_UUID') desc = 'Cryptomus Merchant ID for receiving payments';
-                    else if (key === 'CRYPTOMUS_API_KEY') desc = 'Cryptomus Payment API Key';
-                    else if (key === 'USDT_TRC20_ADDRESS') desc = 'Wallet Address for manual USDT TRC20 payments';
-                    else if (key === 'USDT_BEP20_ADDRESS') desc = 'Wallet Address for manual USDT BEP20 payments';
-                    else if (key === 'BINANCE_PAY_ID') desc = 'Binance Pay merchant / ID for payments';
-                    else if (key === 'REFERRAL_REWARD') desc = 'Balance reward given to referrers when their friend buys ($)';
-                    else if (key === 'REQUIRED_CHANNEL') desc = 'Required Telegram channel username (e.g. @grokkkmet)';
-                    else if (key === 'STRICT_CHANNEL_CHECK') desc = 'Enforce mandatory channel membership check (True/False)';
-                    else if (key === 'CASHBACK_PERCENT') desc = 'Loyalty cashback percentage on completed orders (e.g. 0.05 for 5%)';
-
+                container.innerHTML = Object.keys(grouped).map(group => {
+                    const fields = grouped[group].map(item => {
+                        const val = escapeHtmlAttr(item.value);
+                        const type = item.secret ? 'password' : 'text';
+                        return `
+                            <div class="space-y-1">
+                                <label class="text-[11px] font-bold uppercase tracking-wider text-gray-400">${item.key.replace(/_/g, ' ')}</label>
+                                <input type="${type}" id="setting-${item.key}" value="${val}" autocomplete="off" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                                <p class="text-[11px] text-gray-500">${escapeHtmlAttr(item.desc)}</p>
+                            </div>
+                        `;
+                    }).join('');
                     return `
-                        <div class="space-y-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider text-gray-400">${key.replace(/_/g, ' ')}</label>
-                            <input type="text" id="setting-${key}" value="${settings[key]}" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
-                            <p class="text-[11px] text-gray-500">${desc}</p>
+                        <div class="space-y-4">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-400 border-b border-gray-800 pb-2">${group}</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${fields}</div>
                         </div>
                     `;
                 }).join('');
@@ -1899,10 +1962,10 @@ HTML_TEMPLATE = r"""
 
             const resData = await res.json();
             if (resData.status === 'success') {
-                alert("System configuration updated successfully!");
+                alert(resData.note || "System configuration updated successfully!");
                 fetchSettings();
             } else {
-                alert("Failed to update configuration");
+                alert("Failed to update configuration: " + (resData.message || 'Unknown error'));
             }
         }
 
@@ -2243,13 +2306,15 @@ def product_add():
     category_id = int(data["category_id"])
     tier_prices = data.get("tier_prices", "")
     image_url = data.get("image_url", "")
+    logo_url = data.get("logo_url", "")
+    bulk_discount_enabled = 1 if data.get("bulk_discount_enabled") else 0
 
     conn = get_db_connection()
     try:
         conn.execute(
-            """INSERT INTO products (name, description, price, stock, emoji, category_id, tier_prices, image_url)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, description, price, stock, emoji, category_id, tier_prices, image_url)
+            """INSERT INTO products (name, description, price, stock, emoji, category_id, tier_prices, image_url, logo_url, bulk_discount_enabled)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, description, price, stock, emoji, category_id, tier_prices, image_url, logo_url, bulk_discount_enabled)
         )
         conn.commit()
         return jsonify({"status": "success"})
@@ -2271,16 +2336,19 @@ def product_edit():
     emoji = data.get("emoji", "📦")
     category_id = int(data["category_id"])
     tier_prices = data.get("tier_prices", "")
-
     image_url = data.get("image_url", "")
+    logo_url = data.get("logo_url", "")
+    bulk_discount_enabled = 1 if data.get("bulk_discount_enabled") else 0
 
     conn = get_db_connection()
     try:
         conn.execute(
             """UPDATE products
-               SET name=?, description=?, price=?, stock=?, emoji=?, category_id=?, tier_prices=?, image_url=?
+               SET name=?, description=?, price=?, stock=?, emoji=?, category_id=?,
+                   tier_prices=?, image_url=?, logo_url=?, bulk_discount_enabled=?
                WHERE id=?""",
-            (name, description, price, stock, emoji, category_id, tier_prices, image_url, p_id)
+            (name, description, price, stock, emoji, category_id,
+             tier_prices, image_url, logo_url, bulk_discount_enabled, p_id)
         )
         conn.commit()
         return jsonify({"status": "success"})
@@ -2653,30 +2721,62 @@ def api_broadcast():
     return jsonify({"status": "success", "sent": sent})
 
 
+# Every .env key the dashboard is allowed to read/write, with its default.
+# Grouped for the settings UI. Adding a key here makes it live-editable.
+SETTINGS_SCHEMA = {
+    "Bot Identity": {
+        "BOT_USERNAME": {"default": "", "desc": "Your bot's @username (without the @)."},
+        "SUPPORT_USERNAME": {"default": "@lovable47", "desc": "Support contact shown to users (e.g. @yoursupport)."},
+    },
+    "AI": {
+        "GEMINI_API_KEY": {"default": "", "desc": "Google Gemini AI key for store analysis and broadcast enhancement.", "secret": True},
+    },
+    "Payments": {
+        "CRYPTOMUS_MERCHANT_UUID": {"default": "", "desc": "Cryptomus Merchant ID for automatic crypto payments."},
+        "CRYPTOMUS_API_KEY": {"default": "", "desc": "Cryptomus payment API key.", "secret": True},
+        "USDT_POL_ADDRESS": {"default": "", "desc": "Wallet address for manual USDT (Polygon) payments."},
+        "USDT_TRC20_ADDRESS": {"default": "", "desc": "Wallet address for manual USDT TRC20 payments."},
+        "USDT_BEP20_ADDRESS": {"default": "", "desc": "Wallet address for manual USDT BEP20 payments."},
+        "BINANCE_PAY_ID": {"default": "", "desc": "Binance Pay merchant / ID for payments."},
+    },
+    "Rewards & Loyalty": {
+        "REFERRAL_REWARD": {"default": "0.50", "desc": "Balance credited to a referrer when their friend buys ($)."},
+        "CASHBACK_PERCENT": {"default": "0.05", "desc": "Loyalty cashback on completed orders (0.05 = 5%)."},
+        "SILVER_THRESHOLD": {"default": "50", "desc": "Total spent ($) to reach Silver tier."},
+        "GOLD_THRESHOLD": {"default": "200", "desc": "Total spent ($) to reach Gold tier."},
+        "DIAMOND_THRESHOLD": {"default": "500", "desc": "Total spent ($) to reach Diamond tier."},
+        "SPIN_COOLDOWN": {"default": "86400", "desc": "Seconds between free spins per user (86400 = 24h)."},
+    },
+    "Channel Gate": {
+        "REQUIRED_CHANNEL": {"default": "@grokkkmet", "desc": "Channel users must join to use the bot (e.g. @yourchannel)."},
+        "STRICT_CHANNEL_CHECK": {"default": "True", "desc": "Enforce mandatory channel membership (True/False)."},
+    },
+    "Recurring Message": {
+        "RECURRING_CHAT": {"default": "", "desc": "Chat/channel to auto-post to (blank = disabled)."},
+        "RECURRING_MESSAGE": {"default": "", "desc": "Message text posted on the recurring schedule."},
+        "RECURRING_INTERVAL": {"default": "300", "desc": "Seconds between recurring posts (300 = 5 min)."},
+    },
+}
+
+# Flat set of keys that may be written back to .env.
+SETTINGS_ALLOWED_KEYS = {k for group in SETTINGS_SCHEMA.values() for k in group}
+
+
 @app.route("/api/settings")
 def api_settings():
-    settings = {
-        "GEMINI_API_KEY": get_env_var("GEMINI_API_KEY", ""),
-        "CRYPTOMUS_MERCHANT_UUID": "",
-        "CRYPTOMUS_API_KEY": "",
-        "USDT_TRC20_ADDRESS": "",
-        "USDT_BEP20_ADDRESS": "",
-        "BINANCE_PAY_ID": "",
-        "REFERRAL_REWARD": "1.00",
-        "REQUIRED_CHANNEL": "@grokkkmet",
-        "STRICT_CHANNEL_CHECK": "True",
-        "CASHBACK_PERCENT": "0.05",
-    }
-    if os.path.exists(ENV_PATH):
-        with open(ENV_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                if "=" in line and not line.strip().startswith("#"):
-                    parts = line.strip().split("=", 1)
-                    key = parts[0].strip()
-                    val = parts[1].strip()
-                    if key in settings:
-                        settings[key] = val
-    return jsonify(settings)
+    # Build grouped response: {group: [{key, value, desc, secret}, ...]}
+    grouped = {}
+    for group, keys in SETTINGS_SCHEMA.items():
+        items = []
+        for key, meta in keys.items():
+            items.append({
+                "key": key,
+                "value": get_env_var(key, meta["default"]),
+                "desc": meta.get("desc", ""),
+                "secret": bool(meta.get("secret", False)),
+            })
+        grouped[group] = items
+    return jsonify(grouped)
 
 
 @app.route("/api/settings/save", methods=["POST"])
@@ -2684,8 +2784,10 @@ def api_settings_save():
     data = request.json
     try:
         for key, val in data.items():
-            update_env_var(key, val)
-        return jsonify({"status": "success"})
+            # Only allow writing known keys to prevent arbitrary .env injection.
+            if key in SETTINGS_ALLOWED_KEYS:
+                update_env_var(key, str(val))
+        return jsonify({"status": "success", "note": "Saved. Restart the bot service for changes to take effect."})
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500

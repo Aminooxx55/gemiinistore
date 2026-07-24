@@ -2,7 +2,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes, CallbackQueryHandler, MessageHandler, filters, ConversationHandler
 from database.db import get_db
-from utils.helpers import get_user, get_product_unit_price, get_photo_object
+from utils.helpers import get_user, get_product_unit_price, get_photo_object, get_product_photo, build_tier_summary
 from utils.keyboards import (
     shop_categories_kb, products_list_kb, product_detail_kb,
     quantity_kb, confirm_purchase_kb, back_home_kb,
@@ -152,6 +152,7 @@ async def _show_product_detail(message, user_id: int, context: ContextTypes.DEFA
 
     from config import DEFAULT_PRODUCT_BANNER_URL
     img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
+    logo_url = p.get("logo_url")
     markup = product_detail_kb(prod_id, p["is_free"]) if not out_of_stock else back_home_kb()
 
     from telegram import InputMediaPhoto
@@ -159,7 +160,7 @@ async def _show_product_detail(message, user_id: int, context: ContextTypes.DEFA
         if message.photo or message.document or message.video:
             await message.edit_media(
                 media=InputMediaPhoto(
-                    media=get_photo_object(img_url),
+                    media=get_product_photo(img_url, logo_url),
                     caption=text,
                     parse_mode="HTML"
                 ),
@@ -174,7 +175,7 @@ async def _show_product_detail(message, user_id: int, context: ContextTypes.DEFA
             try:
                 await context.bot.send_photo(
                     chat_id=user_id,
-                    photo=get_photo_object(img_url),
+                    photo=get_product_photo(img_url, logo_url),
                     caption=text,
                     parse_mode="HTML",
                     reply_markup=markup
@@ -194,7 +195,7 @@ async def _show_product_detail(message, user_id: int, context: ContextTypes.DEFA
         try:
             await context.bot.send_photo(
                 chat_id=user_id,
-                photo=get_photo_object(img_url),
+                photo=get_product_photo(img_url, logo_url),
                 caption=text,
                 parse_mode="HTML",
                 reply_markup=markup
@@ -232,6 +233,7 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from config import DEFAULT_PRODUCT_BANNER_URL
     img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
+    logo_url = p.get("logo_url")
 
     if p["is_free"]:
         # Skip quantity for free items, go straight to confirm
@@ -249,7 +251,7 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.send_photo(
                     chat_id=update.effective_user.id,
-                    photo=get_photo_object(img_url),
+                    photo=get_product_photo(img_url, logo_url),
                     caption=text,
                     parse_mode="HTML",
                     reply_markup=markup
@@ -268,9 +270,9 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💲 Base Price: ${p['price']:.2f} each\n"
     )
     
-    pn_lower = p["name"].lower()
-    if "google ai pro" in pn_lower or "gemini" in pn_lower:
-        text += "Select quantity:    ( 1-9 $0.70 | +10 $0.70 | +30 $0.70 | +50 $0.70 )"
+    tier_summary = build_tier_summary(p["id"], p["price"])
+    if tier_summary:
+        text += f"📊 <b>Bulk pricing:</b>\n{tier_summary}\n\nSelect quantity:"
     else:
         text += "Select quantity:"
     markup = quantity_kb(prod_id)
@@ -284,7 +286,7 @@ async def cb_buy_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_photo(
                 chat_id=update.effective_user.id,
-                photo=get_photo_object(img_url),
+                photo=get_product_photo(img_url, logo_url),
                 caption=text,
                 parse_mode="HTML",
                 reply_markup=markup
@@ -343,6 +345,7 @@ async def _show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, prod
     
     from config import DEFAULT_PRODUCT_BANNER_URL
     img_url = p.get("image_url") or DEFAULT_PRODUCT_BANNER_URL
+    logo_url = p.get("logo_url")
     try:
         if message.photo or message.document or message.video:
             await message.edit_caption(caption=text, parse_mode="HTML", reply_markup=markup)
@@ -353,7 +356,7 @@ async def _show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, prod
         try:
             await context.bot.send_photo(
                 chat_id=update.effective_user.id,
-                photo=get_photo_object(img_url),
+                photo=get_product_photo(img_url, logo_url),
                 caption=text,
                 parse_mode="HTML",
                 reply_markup=markup

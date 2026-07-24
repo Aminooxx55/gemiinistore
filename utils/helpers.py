@@ -34,41 +34,161 @@ def get_photo_object(path_or_url: str):
     return "https://placehold.co/800x400/png?text=Welcome"
 
 
-def get_product_unit_price(product_name: str, base_price: float, qty: int, product_id: int = None) -> float:
-    """Calculate the unit price based on custom per-product tier prices or default rules."""
-    import json
-    if product_id:
-        try:
-            import sqlite3
-            from config import DB_PATH
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT tier_prices FROM products WHERE id=?", (product_id,)).fetchone()
-            conn.close()
-            if row and row["tier_prices"]:
-                tiers = json.loads(row["tier_prices"])
-                if qty >= 50 and "tier_50" in tiers and tiers["tier_50"] is not None and float(tiers["tier_50"]) > 0:
-                    return float(tiers["tier_50"])
-                elif qty >= 30 and "tier_30" in tiers and tiers["tier_30"] is not None and float(tiers["tier_30"]) > 0:
-                    return float(tiers["tier_30"])
-                elif qty >= 10 and "tier_10" in tiers and tiers["tier_10"] is not None and float(tiers["tier_10"]) > 0:
-                    return float(tiers["tier_10"])
-                elif "tier_1" in tiers and tiers["tier_1"] is not None and float(tiers["tier_1"]) > 0:
-                    return float(tiers["tier_1"])
-        except Exception:
-            pass
+def _resolve_local_path(path_or_url: str):
+    """Return an absolute local filesystem path for a project-relative path, or None for URLs/missing."""
+    import os
+    if not path_or_url:
+        return None
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        return None
+    if not os.path.isabs(path_or_url):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        full_path = os.path.join(base_dir, path_or_url)
+    else:
+        full_path = path_or_url
+    return full_path if os.path.exists(full_path) else None
 
-    pn_lower = product_name.lower()
-    if "google ai pro" in pn_lower or "gemini" in pn_lower:
-        if qty >= 50:
-            return 0.70
-        elif qty >= 30:
-            return 0.70
-        elif qty >= 10:
-            return 0.70
-        else:
-            return 0.70
+
+def get_product_photo(image_url: str, logo_url: str = None):
+    """Return a photo object for a product, compositing a small brand logo badge
+    onto the top-left corner of the product image when both are available locally.
+
+    Falls back gracefully to the plain product image (get_photo_object) if:
+    - Pillow is unavailable,
+    - either image is a remote URL (can't composite without downloading),
+    - or any compositing error occurs.
+    """
+    # No logo requested → just return the normal photo object
+    if not logo_url:
+        return get_photo_object(image_url)
+
+    base_path = _resolve_local_path(image_url)
+    logo_path = _resolve_local_path(logo_url)
+
+    # Compositing requires both files to exist locally
+    if not base_path or not logo_path:
+        return get_photo_object(image_url)
+
+    try:
+        from PIL import Image
+        import os
+
+        base = Image.open(base_path).convert("RGBA")
+        logo = Image.open(logo_path).convert("RGBA")
+
+        # Scale logo to ~16% of the base width, capped for sanity
+        target_w = max(48, min(int(base.width * 0.16), 240))
+        ratio = target_w / logo.width
+        target_h = max(1, int(logo.height * ratio))
+        logo = logo.resize((target_w, target_h), Image.LANCZOS)
+
+        # Padding + subtle rounded white card behind the logo for contrast
+        pad = max(8, int(base.width * 0.015))
+        card_w = target_w + pad * 2
+        card_h = target_h + pad * 2
+        card = Image.new("RGBA", (card_w, card_h), (255, 255, 255, 235))
+
+        pos = (pad, pad)  # top-left
+        base.alpha_composite(card, pos)
+        base.alpha_composite(logo, (pos[0] + pad, pos[1] + pad))
+
+        out = io.BytesIO()
+        base.convert("RGB").save(out, format="JPEG", quality=90)
+        out.seek(0)
+        out.name = "product.jpg"
+        return out
+    except Exception as e:
+        logger.warning(f"Logo compositing failed ({e}); using plain product image.")
+        return get_photo_object(image_url)
+
+
+def get_product_pricing(product_id: int = None):
+    """Return (bulk_enabled: bool, tiers: dict|None) for a product.
+
+    Reads the per-product bulk-discount toggle and tier_prices JSON directly
+    from the DB. Fully data-driven — no product-name magic.
+    """
+    import json
+    if not product_id:
+        return False, None
+    try:
+        import sqlite3
+        from config import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT bulk_discount_enabled, tier_prices FROM products WHERE id=?",
+            (product_id,)
+        ).fetchone()
+        conn.close()
+        if not row:
+            return False, None
+        enabled = bool(row["bulk_discount_enabled"])
+        tiers = None
+        if row["tier_prices"]:
+            try:
+                tiers = json.loads(row["tier_prices"])
+            except Exception:
+                tiers = None
+        return enabled, tiers
+    except Exception:
+        return False, None
+
+
+def get_product_unit_price(product_name: str, base_price: float, qty: int, product_id: int = None) -> float:
+    """Calculate the unit price.
+
+    Bulk/tier pricing only applies when the product has bulk_discount_enabled=1
+    AND has valid tier_prices set from the dashboard. Otherwise the flat
+    base_price is always used. This is fully configurable per product — there
+    is no hardcoded product-name pricing.
+    """
+    enabled, tiers = get_product_pricing(product_id)
+    if enabled and tiers:
+        def tier_val(key):
+            v = tiers.get(key)
+            try:
+                return float(v) if v is not None and float(v) > 0 else None
+            except (TypeError, ValueError):
+                return None
+
+        if qty >= 50 and tier_val("tier_50") is not None:
+            return tier_val("tier_50")
+        elif qty >= 30 and tier_val("tier_30") is not None:
+            return tier_val("tier_30")
+        elif qty >= 10 and tier_val("tier_10") is not None:
+            return tier_val("tier_10")
+        elif tier_val("tier_1") is not None:
+            return tier_val("tier_1")
+
     return base_price
+
+
+def build_tier_summary(product_id: int, base_price: float) -> str:
+    """Return a human-readable tier breakdown string built from real tier_prices,
+    or empty string if bulk discount is disabled/unset. Never drifts from actual
+    computed prices because it reads the same source as get_product_unit_price."""
+    enabled, tiers = get_product_pricing(product_id)
+    if not (enabled and tiers):
+        return ""
+
+    def tv(key, fallback):
+        v = tiers.get(key)
+        try:
+            return float(v) if v is not None and float(v) > 0 else fallback
+        except (TypeError, ValueError):
+            return fallback
+
+    t1 = tv("tier_1", base_price)
+    t10 = tv("tier_10", t1)
+    t30 = tv("tier_30", t10)
+    t50 = tv("tier_50", t30)
+    return (
+        f"• 1 – 9: ${t1:.2f} each\n"
+        f"• 10 – 29: ${t10:.2f} each\n"
+        f"• 30 – 49: ${t30:.2f} each\n"
+        f"• 50+: ${t50:.2f} each"
+    )
 
 
 async def get_or_create_user(telegram_id: int, username: str, first_name: str, referrer_id: int = None):

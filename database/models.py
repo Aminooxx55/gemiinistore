@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS products (
     has_discount INTEGER DEFAULT 0,
     old_price   REAL,
     image_url   TEXT,
+    logo_url    TEXT,
+    tier_prices TEXT,
+    bulk_discount_enabled INTEGER DEFAULT 0,
     created_at  TEXT DEFAULT (datetime('now'))
 )"""
 
@@ -208,6 +211,20 @@ async def init_db():
         # Migration: Add tier_prices column if not exists
         try:
             await db.execute("ALTER TABLE products ADD COLUMN tier_prices TEXT")
+            await db.commit()
+        except Exception:
+            pass
+
+        # Migration: Add bulk_discount_enabled toggle (per-product on/off switch)
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN bulk_discount_enabled INTEGER DEFAULT 0")
+            await db.commit()
+        except Exception:
+            pass
+
+        # Migration: Add logo_url column (small brand logo shown next to product)
+        try:
+            await db.execute("ALTER TABLE products ADD COLUMN logo_url TEXT")
             await db.commit()
         except Exception:
             pass

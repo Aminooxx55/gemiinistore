@@ -135,60 +135,92 @@ def get_product_pricing(product_id: int = None):
         return False, None
 
 
+def normalize_tiers(tiers) -> list:
+    """Return a list of (min_qty, price) tuples sorted ascending by min_qty.
+
+    Accepts both formats for backward compatibility:
+      • New:    {"ranges": [{"min": 1, "price": 0.95}, {"min": 10, "price": 0.90}, ...]}
+                or a bare list of the same {"min","price"} objects.
+      • Legacy: {"tier_1": 0.95, "tier_10": 0.90, "tier_30": 0.85, "tier_50": 0.75}
+
+    Invalid/blank/zero entries are dropped. Duplicate min quantities keep the last one.
+    """
+    if not tiers:
+        return []
+
+    raw = None
+    if isinstance(tiers, dict) and "ranges" in tiers:
+        raw = tiers["ranges"]
+    elif isinstance(tiers, list):
+        raw = tiers
+
+    by_min = {}
+    if raw is not None:
+        # New range-list format
+        for r in raw:
+            try:
+                mn = int(r.get("min"))
+                pr = float(r.get("price"))
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if mn >= 1 and pr > 0:
+                by_min[mn] = pr
+    elif isinstance(tiers, dict):
+        # Legacy fixed-bracket format
+        legacy = {"tier_1": 1, "tier_10": 10, "tier_30": 30, "tier_50": 50}
+        for key, mn in legacy.items():
+            v = tiers.get(key)
+            try:
+                if v is not None and float(v) > 0:
+                    by_min[mn] = float(v)
+            except (TypeError, ValueError):
+                continue
+
+    return sorted(by_min.items(), key=lambda x: x[0])
+
+
 def get_product_unit_price(product_name: str, base_price: float, qty: int, product_id: int = None) -> float:
     """Calculate the unit price.
 
     Bulk/tier pricing only applies when the product has bulk_discount_enabled=1
     AND has valid tier_prices set from the dashboard. Otherwise the flat
-    base_price is always used. This is fully configurable per product — there
-    is no hardcoded product-name pricing.
+    base_price is always used. Ranges are fully configurable per product — any
+    number of custom quantity breakpoints, no hardcoded product-name pricing.
     """
     enabled, tiers = get_product_pricing(product_id)
-    if enabled and tiers:
-        def tier_val(key):
-            v = tiers.get(key)
-            try:
-                return float(v) if v is not None and float(v) > 0 else None
-            except (TypeError, ValueError):
-                return None
-
-        if qty >= 50 and tier_val("tier_50") is not None:
-            return tier_val("tier_50")
-        elif qty >= 30 and tier_val("tier_30") is not None:
-            return tier_val("tier_30")
-        elif qty >= 10 and tier_val("tier_10") is not None:
-            return tier_val("tier_10")
-        elif tier_val("tier_1") is not None:
-            return tier_val("tier_1")
-
+    if enabled:
+        ranges = normalize_tiers(tiers)
+        chosen = None
+        for mn, pr in ranges:
+            if qty >= mn:
+                chosen = pr  # ranges sorted ascending → last match is the highest applicable tier
+            else:
+                break
+        if chosen is not None:
+            return chosen
     return base_price
 
 
 def build_tier_summary(product_id: int, base_price: float) -> str:
-    """Return a human-readable tier breakdown string built from real tier_prices,
+    """Return a human-readable tier breakdown built from the real ranges,
     or empty string if bulk discount is disabled/unset. Never drifts from actual
     computed prices because it reads the same source as get_product_unit_price."""
     enabled, tiers = get_product_pricing(product_id)
-    if not (enabled and tiers):
+    if not enabled:
+        return ""
+    ranges = normalize_tiers(tiers)
+    if not ranges:
         return ""
 
-    def tv(key, fallback):
-        v = tiers.get(key)
-        try:
-            return float(v) if v is not None and float(v) > 0 else fallback
-        except (TypeError, ValueError):
-            return fallback
-
-    t1 = tv("tier_1", base_price)
-    t10 = tv("tier_10", t1)
-    t30 = tv("tier_30", t10)
-    t50 = tv("tier_50", t30)
-    return (
-        f"• 1 – 9: ${t1:.2f} each\n"
-        f"• 10 – 29: ${t10:.2f} each\n"
-        f"• 30 – 49: ${t30:.2f} each\n"
-        f"• 50+: ${t50:.2f} each"
-    )
+    lines = []
+    for i, (mn, pr) in enumerate(ranges):
+        if i + 1 < len(ranges):
+            upper = ranges[i + 1][0] - 1
+            label = f"{mn} – {upper}" if upper > mn else f"{mn}"
+        else:
+            label = f"{mn}+"
+        lines.append(f"• {label}: ${pr:.2f} each")
+    return "\n".join(lines)
 
 
 async def get_or_create_user(telegram_id: int, username: str, first_name: str, referrer_id: int = None):

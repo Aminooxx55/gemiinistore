@@ -797,26 +797,21 @@ HTML_TEMPLATE = r"""
                         <div class="relative w-9 h-5 bg-gray-700 peer-checked:bg-emerald-500 rounded-full transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
                     </label>
                 </div>
-                <p class="text-[10px] text-gray-500" id="bulk-disabled-note">Bulk discount is <b class="text-rose-400">OFF</b> — every quantity is charged the base unit price. Turn on to apply the tiers below.</p>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                        <label class="block text-[10px] text-gray-400 mb-1 font-semibold">1 – 9 Qty</label>
-                        <input type="number" step="0.01" id="tier-1-price" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none" placeholder="0.70">
+                <p class="text-[10px] text-gray-500" id="bulk-disabled-note">Bulk discount is <b class="text-rose-400">OFF</b> — every quantity is charged the base unit price. Turn on to add your own quantity ranges below.</p>
+
+                <div id="bulk-ranges-wrap" class="space-y-2">
+                    <div class="grid grid-cols-12 gap-2 px-1">
+                        <div class="col-span-5"><label class="block text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Min Quantity</label></div>
+                        <div class="col-span-5"><label class="block text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Price Each ($)</label></div>
+                        <div class="col-span-2"></div>
                     </div>
-                    <div>
-                        <label class="block text-[10px] text-gray-400 mb-1 font-semibold">10 – 29 Qty</label>
-                        <input type="number" step="0.01" id="tier-10-price" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none" placeholder="0.70">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-gray-400 mb-1 font-semibold">30 – 49 Qty</label>
-                        <input type="number" step="0.01" id="tier-30-price" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none" placeholder="0.70">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-gray-400 mb-1 font-semibold">50+ Qty</label>
-                        <input type="number" step="0.01" id="tier-50-price" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none" placeholder="0.70">
-                    </div>
+                    <div id="bulk-ranges-list" class="space-y-2"></div>
                 </div>
-                <p class="text-[10px] text-gray-500">Leave blank to use base unit price. Setting prices here updates the Telegram Bot checkout calculation instantly.</p>
+
+                <button type="button" onclick="addTierRange()" id="add-range-btn" class="w-full py-2 border border-dashed border-indigo-500/40 rounded-lg text-[11px] font-bold text-indigo-400 hover:bg-indigo-500/10 transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-plus text-[10px]"></i><span>Add Quantity Range</span>
+                </button>
+                <p class="text-[10px] text-gray-500">Each row = "buy this many or more → pay this price per unit". Add as many ranges as you want; they're auto-sorted by quantity. The lowest range should start at Min Quantity <b>1</b> to cover single purchases.</p>
             </div>
 
             <div>
@@ -1174,22 +1169,18 @@ HTML_TEMPLATE = r"""
                     let tiersDisplay;
                     if (!p.bulk_discount_enabled) {
                         tiersDisplay = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-700/40 text-gray-400 border border-gray-600/40">Off · base price</span>';
-                    } else if (p.tier_prices) {
-                        try {
-                            const t = JSON.parse(p.tier_prices);
-                            tiersDisplay = `
-                                <div class="text-[11px] space-y-0.5 font-mono">
-                                    <span class="text-emerald-400">1-9: $${t.tier_1 || p.price}</span> |
-                                    <span class="text-emerald-400">10+: $${t.tier_10 || p.price}</span> |
-                                    <span class="text-emerald-400">30+: $${t.tier_30 || p.price}</span> |
-                                    <span class="text-emerald-400">50+: $${t.tier_50 || p.price}</span>
-                                </div>
-                            `;
-                        } catch (e) {
-                            tiersDisplay = '<span class="text-emerald-400 text-[10px] font-bold uppercase">On</span>';
-                        }
                     } else {
-                        tiersDisplay = '<span class="text-emerald-400 text-[10px] font-bold uppercase">On · base price</span>';
+                        const ranges = parseTierRanges(p.tier_prices, p.price);
+                        if (ranges.length > 0) {
+                            const parts = ranges.map((r, i) => {
+                                const next = ranges[i + 1];
+                                const label = next ? (next.min - 1 > r.min ? `${r.min}-${next.min - 1}` : `${r.min}`) : `${r.min}+`;
+                                return `<span class="text-emerald-400">${label}: $${Number(r.price).toFixed(2)}</span>`;
+                            });
+                            tiersDisplay = `<div class="text-[11px] space-y-0.5 font-mono leading-relaxed">${parts.join(' | ')}</div>`;
+                        } else {
+                            tiersDisplay = '<span class="text-emerald-400 text-[10px] font-bold uppercase">On · base price</span>';
+                        }
                     }
 
                     return `
@@ -1240,6 +1231,87 @@ HTML_TEMPLATE = r"""
             }
         }
 
+        // ── Dynamic bulk-discount range editor ──────────────────────────────
+        function tierRangeRowHtml(min, price) {
+            const minVal = (min !== undefined && min !== null) ? min : '';
+            const priceVal = (price !== undefined && price !== null) ? price : '';
+            return `
+                <div class="tier-range-row grid grid-cols-12 gap-2 items-center">
+                    <div class="col-span-5">
+                        <input type="number" min="1" step="1" value="${minVal}" placeholder="e.g. 10"
+                            class="tier-min w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="col-span-5">
+                        <input type="number" min="0" step="0.01" value="${priceVal}" placeholder="e.g. 0.85"
+                            class="tier-price w-full bg-gray-950 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-emerald-400 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="col-span-2 flex justify-end">
+                        <button type="button" onclick="this.closest('.tier-range-row').remove()"
+                            class="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition">
+                            <i class="fa-solid fa-trash text-[10px]"></i>
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        function addTierRange(min, price) {
+            const list = document.getElementById('bulk-ranges-list');
+            list.insertAdjacentHTML('beforeend', tierRangeRowHtml(min, price));
+        }
+
+        function setTierRanges(ranges) {
+            const list = document.getElementById('bulk-ranges-list');
+            list.innerHTML = '';
+            (ranges || []).forEach(r => addTierRange(r.min, r.price));
+        }
+
+        // Parse whatever is stored in tier_prices into a [{min, price}] list.
+        // Supports the new {"ranges":[...]} format and the legacy tier_1/10/30/50 keys.
+        function parseTierRanges(tierPricesStr, basePrice) {
+            if (!tierPricesStr) return [];
+            let t;
+            try { t = JSON.parse(tierPricesStr); } catch (e) { return []; }
+            let rows = [];
+            if (t && Array.isArray(t.ranges)) {
+                rows = t.ranges.map(r => ({min: Number(r.min), price: Number(r.price)}));
+            } else if (Array.isArray(t)) {
+                rows = t.map(r => ({min: Number(r.min), price: Number(r.price)}));
+            } else if (t && typeof t === 'object') {
+                const legacy = {tier_1: 1, tier_10: 10, tier_30: 30, tier_50: 50};
+                Object.keys(legacy).forEach(k => {
+                    if (t[k] !== undefined && t[k] !== null && Number(t[k]) > 0) {
+                        rows.push({min: legacy[k], price: Number(t[k])});
+                    }
+                });
+            }
+            return rows
+                .filter(r => Number.isFinite(r.min) && r.min >= 1 && Number.isFinite(r.price) && r.price > 0)
+                .sort((a, b) => a.min - b.min);
+        }
+
+        function readTierRanges() {
+            const rows = [];
+            document.querySelectorAll('#bulk-ranges-list .tier-range-row').forEach(row => {
+                const min = parseInt(row.querySelector('.tier-min').value);
+                const price = parseFloat(row.querySelector('.tier-price').value);
+                if (Number.isFinite(min) && min >= 1 && Number.isFinite(price) && price > 0) {
+                    rows.push({min, price});
+                }
+            });
+            rows.sort((a, b) => a.min - b.min);
+            return rows;
+        }
+
+        function toggleBulkFields() {
+            const on = document.getElementById('prod-bulk-enabled').checked;
+            const wrap = document.getElementById('bulk-ranges-wrap');
+            const addBtn = document.getElementById('add-range-btn');
+            if (wrap) wrap.style.display = on ? 'block' : 'none';
+            if (addBtn) addBtn.style.display = on ? 'flex' : 'none';
+            const note = document.getElementById('bulk-disabled-note');
+            if (note) note.style.display = on ? 'none' : 'block';
+        }
+
         function openProductModal() {
             populateCategoryDropdowns();
             document.getElementById('modal-product-title').innerText = 'Create Product';
@@ -1252,23 +1324,15 @@ HTML_TEMPLATE = r"""
             document.getElementById('prod-image-url').value = '';
             document.getElementById('prod-logo-url').value = '';
             document.getElementById('prod-bulk-enabled').checked = false;
-            document.getElementById('tier-1-price').value = '0.95';
-            document.getElementById('tier-10-price').value = '0.90';
-            document.getElementById('tier-30-price').value = '0.85';
-            document.getElementById('tier-50-price').value = '0.75';
+            // Sensible starter ranges (admin can add/remove/edit freely)
+            setTierRanges([
+                {min: 1, price: 0.95},
+                {min: 10, price: 0.90},
+                {min: 30, price: 0.85},
+                {min: 50, price: 0.75},
+            ]);
             toggleBulkFields();
             document.getElementById('modal-product').classList.remove('hidden');
-        }
-
-        function toggleBulkFields() {
-            const on = document.getElementById('prod-bulk-enabled').checked;
-            ['tier-1-price', 'tier-10-price', 'tier-30-price', 'tier-50-price'].forEach(id => {
-                const el = document.getElementById(id);
-                el.disabled = !on;
-                el.style.opacity = on ? '1' : '0.4';
-            });
-            const note = document.getElementById('bulk-disabled-note');
-            if (note) note.style.display = on ? 'none' : 'block';
         }
 
         function editProduct(p) {
@@ -1285,34 +1349,14 @@ HTML_TEMPLATE = r"""
             document.getElementById('prod-bulk-enabled').checked = !!p.bulk_discount_enabled;
             document.getElementById('prod-category').value = p.category_id;
 
-            let t1 = p.price, t10 = p.price, t30 = p.price, t50 = p.price;
-            if (p.tier_prices) {
-                try {
-                    const t = JSON.parse(p.tier_prices);
-                    t1 = t.tier_1 !== undefined && t.tier_1 !== null ? t.tier_1 : p.price;
-                    t10 = t.tier_10 !== undefined && t.tier_10 !== null ? t.tier_10 : p.price;
-                    t30 = t.tier_30 !== undefined && t.tier_30 !== null ? t.tier_30 : p.price;
-                    t50 = t.tier_50 !== undefined && t.tier_50 !== null ? t.tier_50 : p.price;
-                } catch(e) {}
+            let ranges = parseTierRanges(p.tier_prices, p.price);
+            if (ranges.length === 0) {
+                ranges = [{min: 1, price: p.price}];
             }
-            document.getElementById('tier-1-price').value = t1;
-            document.getElementById('tier-10-price').value = t10;
-            document.getElementById('tier-30-price').value = t30;
-            document.getElementById('tier-50-price').value = t50;
+            setTierRanges(ranges);
 
             toggleBulkFields();
             document.getElementById('modal-product').classList.remove('hidden');
-        }
-
-        function toggleBulkFields() {
-            const on = document.getElementById('prod-bulk-enabled').checked;
-            ['tier-1-price','tier-10-price','tier-30-price','tier-50-price'].forEach(id => {
-                const el = document.getElementById(id);
-                el.disabled = !on;
-                el.style.opacity = on ? '1' : '0.4';
-            });
-            const note = document.getElementById('bulk-disabled-note');
-            if (note) note.style.display = on ? 'none' : 'block';
         }
 
         function closeProductModal() {
@@ -1321,15 +1365,14 @@ HTML_TEMPLATE = r"""
 
         async function saveProduct() {
             const pId = document.getElementById('prod-id').value;
-            const basePrice = parseFloat(document.getElementById('prod-price').value) || 0.0;
-            const tierPrices = {
-                tier_1: parseFloat(document.getElementById('tier-1-price').value) || basePrice,
-                tier_10: parseFloat(document.getElementById('tier-10-price').value) || basePrice,
-                tier_30: parseFloat(document.getElementById('tier-30-price').value) || basePrice,
-                tier_50: parseFloat(document.getElementById('tier-50-price').value) || basePrice
-            };
-
             const bulkEnabled = document.getElementById('prod-bulk-enabled').checked;
+            const ranges = readTierRanges();
+
+            if (bulkEnabled && ranges.length === 0) {
+                alert('Bulk discount is enabled but you have no valid ranges. Add at least one range (min quantity + price), or turn bulk discount off.');
+                return;
+            }
+
             const data = {
                 id: pId ? parseInt(pId) : null,
                 name: document.getElementById('prod-name').value.trim(),
@@ -1340,7 +1383,7 @@ HTML_TEMPLATE = r"""
                 image_url: document.getElementById('prod-image-url').value.trim(),
                 logo_url: document.getElementById('prod-logo-url').value.trim(),
                 category_id: parseInt(document.getElementById('prod-category').value),
-                tier_prices: JSON.stringify(tierPrices),
+                tier_prices: JSON.stringify({ranges}),
                 bulk_discount_enabled: bulkEnabled ? 1 : 0
             };
 
